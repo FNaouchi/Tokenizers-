@@ -54,20 +54,32 @@ Base path `/api`. JSON, snake_case. Money is a string with 3 decimals. Timestamp
 
 `details` is always present. It lists the invalid fields for `VALIDATION_FAILED` and is `[]` for the other codes: `BAD_REQUEST` (400, a request that can't be read, such as a badly encoded URL), `NOT_FOUND` (404) and `INTERNAL_ERROR` (500, with a general message only).
 
+## Transaction filters
+
+`GET /api/flags` and `GET /api/flags/summary` accept the same filters. Several can be combined, and a transaction must match all of them.
+
+| Query | Meaning |
+|---|---|
+| `account_id` | `ACC-` followed by digits. |
+| `date_from`, `date_to` | Kuwait calendar days like `2026-10-25`. Both ends are included, so `date_to=2026-10-25` keeps everything up to 23:59:59 on that day. `date_to` must not be before `date_from`. |
+| `segment` | `RETAIL`, `SME` or `CORPORATE`: the customer segment of the account. |
+| `branch` | The account's home branch, exactly as in `branches` from `GET /api/config`. An unknown branch returns an empty result. |
+| `min_amount_kwd` | A decimal with at most 3 places, like `3000` or `3000.500`. Keeps transactions whose KWD amount is at least this. Transactions with no amount are left out. |
+
 ## GET /api/flags
 
 Returns flagged transactions, newest first by default. Each transaction appears once with all the flags that fired.
 
-- **Query:** `rule` (optional, one of `LARGE_AMOUNT`, `VELOCITY`, `HIGH_RISK_COUNTRY`), `sort` (optional, `newest` (default) or `most_flags`: transactions with the most flags first, then newest first), `account_id` (optional, `ACC-` followed by digits), `limit` (optional, 1 to 500, default 50), `offset` (optional, default 0).
+- **Query:** `rule` (optional, one of `LARGE_AMOUNT`, `VELOCITY`, `HIGH_RISK_COUNTRY`), `sort` (optional, `newest` (default) or `most_flags`: transactions with the most flags first, then newest first), `account_id`, `date_from`, `date_to`, `segment`, `branch` and `min_amount_kwd` (all optional, see [Transaction filters](#transaction-filters)), `limit` (optional, 1 to 500, default 50), `offset` (optional, default 0).
 - **Filter behaviour:** with `rule`, only transactions that fired that rule are returned, and their `flags` still list every rule that fired.
 - **Response 200:** `{"items": [Flagged transaction], "total": 115, "limit": 50, "offset": 0}`
-- **Errors:** `400` `VALIDATION_FAILED` for an unknown `rule` or `sort`, a malformed `account_id`, or a bad `limit` or `offset`. All problems are reported together. An account with no flags returns `200` with an empty list.
+- **Errors:** `400` `VALIDATION_FAILED` for an unknown `rule` or `sort`, an invalid transaction filter, or a bad `limit` or `offset`. All problems are reported together. An account with no flags returns `200` with an empty list.
 
 ## GET /api/flags/summary
 
 Counts used by the dashboard cards.
 
-- **Query:** `account_id` (optional). When set, the counts only cover that account.
+- **Query:** the [Transaction filters](#transaction-filters), all optional. Every count follows them, including `total_transactions` (the transactions that match, flagged or not). It does not take `rule`: the cards show every rule so an analyst can pick one.
 - **Response 200:**
 
 ```json
@@ -79,7 +91,7 @@ Counts used by the dashboard cards.
 ```
 
 `by_rule` always has all 3 rules, with `0` for rules that didn't fire. A transaction with 2 flags counts once under each rule and once in `flagged_transactions`.
-- **Errors:** `400` for a malformed `account_id`.
+- **Errors:** `400` `VALIDATION_FAILED` for an invalid filter. All problems are reported together.
 
 ## GET /api/transactions/{transaction_id}
 
@@ -107,9 +119,13 @@ Returns the limits the rules are using, so the dashboard can show them.
 {
   "large_amount_kwd": "3000.000",
   "velocity": {"min_count": 5, "window_minutes": 60},
-  "high_risk_countries": [{"country_code": "XA", "country_name": "Xandria", "reason": "Fictional: strategic AML/CFT deficiencies"}]
+  "high_risk_countries": [{"country_code": "XA", "country_name": "Xandria", "reason": "Fictional: strategic AML/CFT deficiencies"}],
+  "customer_segments": ["RETAIL", "SME", "CORPORATE"],
+  "branches": ["Farwaniya", "Hawalli", "Jahra"]
 }
 ```
+
+`customer_segments` and `branches` are the values the `segment` and `branch` filters accept. `branches` lists the home branches of the loaded accounts, sorted.
 
 ## GET /api/import-report
 

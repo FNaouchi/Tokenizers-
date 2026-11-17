@@ -45,9 +45,11 @@ h1 { margin: 0; font-size: 1.6rem; }
 
 .filters { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; margin-bottom: 16px; }
 .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; }
-.filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font: inherit; min-width: 190px; }
+.filters select, .filters input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font: inherit; min-width: 160px; }
 .filters input[aria-invalid='true'] { border-color: var(--risk); }
-.hint { color: var(--risk); font-size: 0.85rem; align-self: center; }
+.hints { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.hints:empty { display: none; }
+.hint { color: var(--risk); font-size: 0.85rem; }
 
 .link-button { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-align: left; }
 .link-button:hover { text-decoration: underline; }

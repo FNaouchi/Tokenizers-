@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { api, type FlagSort, type RuleId } from './api';
+import { api, type FlagSort, type RuleId, type TransactionFilters } from './api';
 import { HighRiskCountriesContext } from './Country';
-import { Filters } from './Filters';
+import { checkFilters, Filters, NO_FILTERS, type FilterValues } from './Filters';
 import { FlagTable } from './FlagTable';
 import { ImportPanel } from './ImportPanel';
 import { NotAssessedPanel } from './NotAssessedPanel';
@@ -9,37 +9,46 @@ import { RulesStrip, SummaryCards } from './SummaryCards';
 import { useApi } from './useApi';
 
 const PAGE_SIZE = 50;
-const ACCOUNT_PATTERN = /^ACC-\d+$/;
 
 export function App() {
-  const [rule, setRule] = useState<RuleId | undefined>();
-  const [accountText, setAccountText] = useState('');
+  const [filters, setFilters] = useState<FilterValues>(NO_FILTERS);
   const [sort, setSort] = useState<FlagSort>('most_flags');
   const [offset, setOffset] = useState(0);
 
-  const trimmed = accountText.trim().toUpperCase();
-  const accountValid = trimmed === '' || ACCOUNT_PATTERN.test(trimmed);
-  const account = trimmed !== '' && accountValid ? trimmed : undefined;
+  const problems = checkFilters(filters);
+  const filtersValid = !problems.account && !problems.dates && !problems.minAmount;
+  const account = filters.accountText.trim().toUpperCase();
+  const { rule } = filters;
+
+  // Only valid values are sent, so a half-typed filter never reaches the API.
+  const applied: TransactionFilters = {
+    account_id: account !== '' && !problems.account ? account : undefined,
+    date_from: filters.dateFrom || undefined,
+    date_to: filters.dateTo || undefined,
+    segment: filters.segment || undefined,
+    branch: filters.branch || undefined,
+    min_amount_kwd: filters.minAmountText.trim() !== '' && !problems.minAmount ? filters.minAmountText.trim() : undefined,
+  };
+  const appliedKey = JSON.stringify(applied);
 
   const config = useApi((signal) => api.config(signal), []);
-  const summary = useApi((signal) => api.summary({ account_id: account }, signal), [account]);
+  const summary = useApi((signal) => api.summary(applied, signal), [appliedKey]);
   const flags = useApi(
-    (signal) => api.flags({ rule, sort, account_id: account, limit: PAGE_SIZE, offset }, signal),
-    [rule, sort, account, offset],
+    (signal) => api.flags({ ...applied, rule, sort, limit: PAGE_SIZE, offset }, signal),
+    [appliedKey, rule, sort, offset],
   );
 
-  const changeRule = (next: RuleId | undefined) => {
-    setRule(next);
+  const changeFilters = (patch: Partial<FilterValues>) => {
+    setFilters((previous) => ({ ...previous, ...patch }));
     setOffset(0);
   };
+  const changeRule = (next: RuleId | undefined) => changeFilters({ rule: next });
   const changeSort = (next: FlagSort) => {
     setSort(next);
     setOffset(0);
   };
-  const changeAccount = (text: string) => {
-    setAccountText(text);
-    setOffset(0);
-  };
+  const changeAccount = (text: string) => changeFilters({ accountText: text });
+  const nonRuleAccount = applied.account_id;
 
   const page = flags.data;
   const first = page && page.total > 0 ? page.offset + 1 : 0;
@@ -55,29 +64,25 @@ export function App() {
         {config.error && <p className="error" role="alert">{config.error}</p>}
       </header>
 
-      <SummaryCards summary={summary} config={config.data} activeRule={rule} onSelect={changeRule} stale={!accountValid} />
+      <SummaryCards summary={summary} config={config.data} activeRule={rule} onSelect={changeRule} stale={!filtersValid} />
 
       <Filters
-        rule={rule}
-        accountText={accountText}
-        accountValid={accountValid}
+        values={filters}
+        problems={problems}
+        config={config.data}
         sort={sort}
         onSortChange={changeSort}
-        onRuleChange={changeRule}
-        onAccountTextChange={changeAccount}
+        onChange={changeFilters}
         onClear={() => {
-          setRule(undefined);
-          setAccountText('');
+          setFilters(NO_FILTERS);
           setOffset(0);
         }}
       />
 
       <main aria-busy={flags.loading}>
-        {!accountValid && (
-          <p className="empty">Finish typing a full account id, like ACC-100118. The account filter is not applied yet.</p>
-        )}
-        {accountValid && flags.error && <p className="error" role="alert">{flags.error}</p>}
-        {accountValid && page && (
+        {!filtersValid && <p className="empty">Fix the highlighted filter. Until then it is not applied.</p>}
+        {filtersValid && flags.error && <p className="error" role="alert">{flags.error}</p>}
+        {filtersValid && page && (
           <>
             <p className="result-count">
               {page.total === 0 ? 'No results' : `Showing ${first}–${last} of ${page.total} flagged transactions`}
@@ -93,10 +98,10 @@ export function App() {
             </nav>
           </>
         )}
-        {accountValid && !page && flags.loading && <p className="empty">Loading…</p>}
+        {filtersValid && !page && flags.loading && <p className="empty">Loading…</p>}
       </main>
 
-      <NotAssessedPanel account={account} onAccountClick={changeAccount} />
+      <NotAssessedPanel account={nonRuleAccount} onAccountClick={changeAccount} />
       <ImportPanel />
     </div>
     </HighRiskCountriesContext.Provider>

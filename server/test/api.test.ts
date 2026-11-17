@@ -2,7 +2,8 @@ import request from 'supertest';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/api/app.js';
 import { createFreshDatabase } from '../src/db.js';
-import { defaultConfig, loadRealDatabase } from './helpers.js';
+import { applyRules } from '../src/rules/engine.js';
+import { csvRow, defaultConfig, importFixture, loadRealDatabase } from './helpers.js';
 
 let app: ReturnType<typeof createApp>;
 
@@ -171,6 +172,92 @@ describe('GET /api/flags/summary', () => {
   });
 });
 
+describe('transaction filters on /api/flags and /api/flags/summary', () => {
+  const row = (n: number, timestamp: string, account: string, amount: string) =>
+    csvRow({ transaction_id: `TXN-00000${n}`, timestamp, account_id: account, amount, amount_kwd: amount });
+
+  let filtered: ReturnType<typeof createApp>;
+  beforeAll(() => {
+    const { db } = importFixture({
+      transactions: [
+        row(1, '2026-10-24T23:59:59+03:00', 'ACC-100001', '3000.000'),
+        row(2, '2026-10-25T00:00:00+03:00', 'ACC-100001', '3000.001'),
+        row(3, '2026-10-25T23:59:59+03:00', 'ACC-100002', '5000.000'),
+        row(4, '2026-10-26T00:00:00+03:00', 'ACC-100002', '4000.000'),
+        row(5, '2026-10-24T21:30:00Z', 'ACC-100002', '3500.000'),
+        row(6, '2026-10-25T10:00:00+03:00', 'ACC-100002', '100.000'),
+      ],
+    });
+    const config = defaultConfig();
+    applyRules(db, config);
+    filtered = createApp(db, config);
+  });
+
+  const ids = async (query: string) => {
+    const res = await request(filtered).get(`/api/flags?${query}`);
+    expect(res.status).toBe(200);
+    return res.body.items.map((i: { transaction_id: string }) => i.transaction_id.slice(-1)).sort();
+  };
+
+  it('treats both date ends as whole Kuwait days, including a UTC record', async () => {
+    expect(await ids('date_from=2026-10-25&date_to=2026-10-25')).toEqual(['2', '3', '5']);
+    expect(await ids('date_to=2026-10-24')).toEqual(['1']);
+    expect(await ids('date_from=2026-10-26')).toEqual(['4']);
+  });
+
+  it('filters by segment and branch', async () => {
+    expect(await ids('segment=RETAIL')).toEqual(['1', '2']);
+    expect(await ids('segment=SME')).toEqual(['3', '4', '5']);
+    expect(await ids('branch=Hawalli')).toEqual(['3', '4', '5']);
+    expect(await ids('branch=Jahra&segment=SME')).toEqual([]);
+  });
+
+  it('includes an amount equal to the minimum and excludes one just below it', async () => {
+    expect(await ids('min_amount_kwd=3000')).toEqual(['1', '2', '3', '4', '5']);
+    expect(await ids('min_amount_kwd=3000.001')).toEqual(['2', '3', '4', '5']);
+    expect(await ids('min_amount_kwd=3000.002')).toEqual(['3', '4', '5']);
+  });
+
+  it('reports the total for the filtered list', async () => {
+    const res = await request(filtered).get('/api/flags?segment=SME&min_amount_kwd=4000&limit=1');
+    expect(res.body).toMatchObject({ total: 2, limit: 1 });
+    expect(res.body.items).toHaveLength(1);
+  });
+
+  it('applies every filter to every summary count, including the transaction total', async () => {
+    const unfiltered = await request(filtered).get('/api/flags/summary');
+    expect(unfiltered.body).toEqual({
+      by_rule: { LARGE_AMOUNT: 5, VELOCITY: 0, HIGH_RISK_COUNTRY: 0 },
+      flagged_transactions: 5,
+      total_transactions: 6,
+    });
+    const day = await request(filtered).get('/api/flags/summary?segment=SME&date_from=2026-10-25&date_to=2026-10-25');
+    expect(day.body).toEqual({
+      by_rule: { LARGE_AMOUNT: 2, VELOCITY: 0, HIGH_RISK_COUNTRY: 0 },
+      flagged_transactions: 2,
+      total_transactions: 3,
+    });
+    const big = await request(filtered).get('/api/flags/summary?branch=Hawalli&min_amount_kwd=4000');
+    expect(big.body).toEqual({
+      by_rule: { LARGE_AMOUNT: 2, VELOCITY: 0, HIGH_RISK_COUNTRY: 0 },
+      flagged_transactions: 2,
+      total_transactions: 2,
+    });
+  });
+
+  it('returns 400 listing every invalid filter', async () => {
+    const query = 'date_from=2026-02-30&date_to=yesterday&segment=VIP&branch=&min_amount_kwd=-5';
+    for (const path of ['/api/flags', '/api/flags/summary']) {
+      const res = await request(filtered).get(`${path}?${query}`);
+      expect(res.status).toBe(400);
+      expect(errorOf(res.body).details?.map((d) => d.field)).toEqual(['date_from', 'date_to', 'segment', 'branch', 'min_amount_kwd']);
+    }
+    const reversed = await request(filtered).get('/api/flags?date_from=2026-10-26&date_to=2026-10-25');
+    expect(reversed.status).toBe(400);
+    expect(errorOf(reversed.body).details?.map((d) => d.field)).toEqual(['date_to']);
+  });
+});
+
 describe('GET /api/transactions/:id', () => {
   it('returns a flagged transaction with all its flags', async () => {
     const res = await request(app).get('/api/transactions/TXN-000585');
@@ -208,6 +295,13 @@ describe('GET /api/config', () => {
     expect(res.body.large_amount_kwd).toBe('3000.000');
     expect(res.body.velocity).toEqual({ min_count: 5, window_minutes: 60 });
     expect(res.body.high_risk_countries.map((c: { country_code: string }) => c.country_code)).toEqual(['XA', 'XB', 'XC', 'XD']);
+  });
+
+  it('lists the segments and branches that can be filtered on', async () => {
+    const res = await request(app).get('/api/config');
+    expect(res.body.customer_segments).toEqual(['RETAIL', 'SME', 'CORPORATE']);
+    expect(res.body.branches).toEqual(expect.arrayContaining(['Jahra', 'Hawalli']));
+    expect(res.body.branches).toEqual([...res.body.branches].sort());
   });
 
   it('shows the limits it was given', async () => {

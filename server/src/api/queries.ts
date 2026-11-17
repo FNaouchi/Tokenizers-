@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { formatFils } from '../money.js';
-import { formatKuwaitTime } from '../time.js';
+import { formatKuwaitTime, kuwaitDayStartMs } from '../time.js';
 import { RULE_IDS, type RuleId } from '../rules/types.js';
 
 export interface FlaggedTransaction {
@@ -40,9 +40,20 @@ interface FlagRow {
 const TRANSACTION_COLUMNS = `t.transaction_id, t.ts_epoch_ms, t.account_id, a.customer_segment, a.home_branch,
   t.direction, t.transaction_type, t.channel, t.amount_kwd_fils, t.counterparty_country, t.dq_notes`;
 
-export interface FlagFilters {
-  rule?: RuleId;
+export const CUSTOMER_SEGMENTS = ['RETAIL', 'SME', 'CORPORATE'] as const;
+
+/** Filters on the transaction or its account. Dates are Kuwait calendar days, both ends included. */
+export interface TransactionFilters {
   account_id?: string;
+  date_from?: string;
+  date_to?: string;
+  segment?: string;
+  branch?: string;
+  min_amount_fils?: number;
+}
+
+export interface FlagFilters extends TransactionFilters {
+  rule?: RuleId;
 }
 
 export interface Page {
@@ -50,19 +61,54 @@ export interface Page {
   offset: number;
 }
 
+type SqlParams = Record<string, string | number>;
+
+/** Builds the SQL conditions for the transaction filters (on aliases t and a), with named parameters. */
+function transactionConditions(filters: TransactionFilters): { conditions: string[]; params: SqlParams } {
+  const conditions: string[] = [];
+  const params: SqlParams = {};
+  if (filters.account_id) {
+    conditions.push('t.account_id = @account_id');
+    params.account_id = filters.account_id;
+  }
+  if (filters.date_from) {
+    const start = kuwaitDayStartMs(filters.date_from);
+    if (start !== null) {
+      conditions.push('t.ts_epoch_ms >= @from_ms');
+      params.from_ms = start;
+    }
+  }
+  if (filters.date_to) {
+    const start = kuwaitDayStartMs(filters.date_to);
+    if (start !== null) {
+      conditions.push('t.ts_epoch_ms < @to_ms');
+      params.to_ms = start + 24 * 60 * 60 * 1000;
+    }
+  }
+  if (filters.segment) {
+    conditions.push('a.customer_segment = @segment');
+    params.segment = filters.segment;
+  }
+  if (filters.branch) {
+    conditions.push('a.home_branch = @branch');
+    params.branch = filters.branch;
+  }
+  if (filters.min_amount_fils !== undefined) {
+    conditions.push('t.amount_kwd_fils >= @min_amount_fils');
+    params.min_amount_fils = filters.min_amount_fils;
+  }
+  return { conditions, params };
+}
+
 /** Builds the WHERE clause for "transactions that fired a rule", with named parameters. */
-function flaggedWhere(filters: FlagFilters): { where: string; params: Record<string, string> } {
-  const params: Record<string, string> = {};
+function flaggedWhere(filters: FlagFilters): { where: string; params: SqlParams } {
+  const { conditions, params } = transactionConditions(filters);
   let flagCondition = 'f.transaction_id = t.transaction_id';
   if (filters.rule) {
     flagCondition += ' AND f.rule_id = @rule';
     params.rule = filters.rule;
   }
-  let where = `EXISTS (SELECT 1 FROM flags f WHERE ${flagCondition})`;
-  if (filters.account_id) {
-    where += ' AND t.account_id = @account_id';
-    params.account_id = filters.account_id;
-  }
+  const where = [`EXISTS (SELECT 1 FROM flags f WHERE ${flagCondition})`, ...conditions].join(' AND ');
   return { where, params };
 }
 
@@ -120,7 +166,7 @@ export function notAssessedRules(notes: string[]): RuleId[] {
 
 /** Transactions a rule could not check because a value was missing or unusable, newest first. */
 export function listNotAssessed(db: Database.Database, filters: { account_id?: string }, page: Page) {
-  const params: Record<string, string> = {};
+  const params: SqlParams = {};
   let where = `EXISTS (SELECT 1 FROM json_each(t.dq_notes) WHERE json_each.value IN ('MISSING_AMOUNT','MISSING_COUNTRY','INVALID_COUNTRY'))`;
   if (filters.account_id) {
     where += ' AND t.account_id = @account_id';
@@ -136,12 +182,14 @@ export function listNotAssessed(db: Database.Database, filters: { account_id?: s
 function listPage(
   db: Database.Database,
   where: string,
-  params: Record<string, string>,
+  params: SqlParams,
   page: Page,
   orderBy: string = NEWEST_FIRST,
 ) {
   const total = (
-    db.prepare(`SELECT COUNT(*) AS n FROM transactions t WHERE ${where}`).get(params) as { n: number }
+    db
+      .prepare(`SELECT COUNT(*) AS n FROM transactions t JOIN accounts a ON a.account_id = t.account_id WHERE ${where}`)
+      .get(params) as { n: number }
   ).n;
   const rows = db
     .prepare(
@@ -155,15 +203,17 @@ function listPage(
   return { items: attachFlags(db, rows), total, limit: page.limit, offset: page.offset };
 }
 
-export function flagSummary(db: Database.Database, accountId?: string) {
-  const params: Record<string, string> = accountId ? { account_id: accountId } : {};
-  const accountClause = accountId ? 'AND t.account_id = @account_id' : '';
+/** Flag counts for the transactions that match the filters. Every filter applies to every count. */
+export function flagSummary(db: Database.Database, filters: TransactionFilters = {}) {
+  const { conditions, params } = transactionConditions(filters);
+  const and = conditions.map((c) => ` AND ${c}`).join('');
+  const from = 'transactions t JOIN accounts a ON a.account_id = t.account_id';
 
   const by_rule = Object.fromEntries(RULE_IDS.map((id) => [id, 0])) as Record<RuleId, number>;
   const counts = db
     .prepare(
-      `SELECT f.rule_id, COUNT(*) AS n FROM flags f JOIN transactions t ON t.transaction_id = f.transaction_id
-       WHERE 1 = 1 ${accountClause} GROUP BY f.rule_id`,
+      `SELECT f.rule_id, COUNT(*) AS n FROM flags f JOIN transactions t ON t.transaction_id = f.transaction_id JOIN accounts a ON a.account_id = t.account_id
+       WHERE 1 = 1${and} GROUP BY f.rule_id`,
     )
     .all(params) as { rule_id: RuleId; n: number }[];
   for (const { rule_id, n } of counts) by_rule[rule_id] = n;
@@ -171,15 +221,13 @@ export function flagSummary(db: Database.Database, accountId?: string) {
   const flagged_transactions = (
     db
       .prepare(
-        `SELECT COUNT(DISTINCT f.transaction_id) AS n FROM flags f JOIN transactions t ON t.transaction_id = f.transaction_id
-         WHERE 1 = 1 ${accountClause}`,
+        `SELECT COUNT(DISTINCT f.transaction_id) AS n FROM flags f JOIN transactions t ON t.transaction_id = f.transaction_id JOIN accounts a ON a.account_id = t.account_id
+         WHERE 1 = 1${and}`,
       )
       .get(params) as { n: number }
   ).n;
   const total_transactions = (
-    db
-      .prepare(`SELECT COUNT(*) AS n FROM transactions t WHERE 1 = 1 ${accountClause}`)
-      .get(params) as { n: number }
+    db.prepare(`SELECT COUNT(*) AS n FROM ${from} WHERE 1 = 1${and}`).get(params) as { n: number }
   ).n;
 
   return { by_rule, flagged_transactions, total_transactions };
@@ -211,4 +259,12 @@ export function getHighRiskCountries(db: Database.Database) {
   return db
     .prepare('SELECT country_code, country_name, reason FROM high_risk_countries ORDER BY country_code')
     .all() as { country_code: string; country_name: string; reason: string }[];
+}
+
+/** The segments and branches that exist in the loaded accounts, for the dashboard's filter lists. */
+export function getFilterOptions(db: Database.Database) {
+  const branches = (db.prepare('SELECT DISTINCT home_branch FROM accounts ORDER BY home_branch').all() as { home_branch: string }[]).map(
+    (row) => row.home_branch,
+  );
+  return { customer_segments: [...CUSTOMER_SEGMENTS], branches };
 }

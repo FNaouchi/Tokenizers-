@@ -38,3 +38,8 @@ export function parseTimestamp(text: string): ParsedTimestamp | null {
 export function formatKuwaitTime(epochMs: number): string {
   return new Date(epochMs + KUWAIT_OFFSET_MINUTES * 60_000).toISOString().slice(0, 19) + '+03:00';
 }
+
+/** The UTC instant at which a Kuwait calendar day ("2026-10-25") starts. Returns null if the date is not a real date. */
+export function kuwaitDayStartMs(date: string): number | null {
+  return parseTimestamp(`${date}T00:00:00+03:00`)?.epochMs ?? null;
+}

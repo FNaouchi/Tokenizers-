@@ -13,6 +13,7 @@ import {
 } from './http.js';
 import {
   flagSummary,
+  getFilterOptions,
   getHighRiskCountries,
   getImportReport,
   getTransaction,
@@ -38,7 +39,7 @@ export function createApp(db: Database.Database, config: RulesConfig): Express {
   api.get('/flags/summary', (req, res) => {
     const parsed = parseSummaryQuery(req.query);
     if (!parsed.ok) return sendValidationError(res, parsed.errors);
-    res.json(flagSummary(db, parsed.value.account_id));
+    res.json(flagSummary(db, parsed.value));
   });
 
   api.get('/not-assessed', (req, res) => {
@@ -59,6 +60,7 @@ export function createApp(db: Database.Database, config: RulesConfig): Express {
       large_amount_kwd: formatFils(limitFils),
       velocity: { min_count: config.velocity.minCount, window_minutes: config.velocity.windowMinutes },
       high_risk_countries: getHighRiskCountries(db),
+      ...getFilterOptions(db),
     });
   });
 

@@ -1,5 +1,8 @@
 import type { Response } from 'express';
+import { parseKwdToFils } from '../money.js';
 import { RULE_IDS, type RuleId } from '../rules/types.js';
+import { kuwaitDayStartMs } from '../time.js';
+import { CUSTOMER_SEGMENTS, type TransactionFilters } from './queries.js';
 
 export interface ErrorDetail {
   field: string;
@@ -43,7 +46,7 @@ export interface AccountFilter {
 export const FLAG_SORTS = ['newest', 'most_flags'] as const;
 export type FlagSort = (typeof FLAG_SORTS)[number];
 
-export interface FlagsQuery extends AccountFilter {
+export interface FlagsQuery extends TransactionFilters {
   rule?: RuleId;
   sort: FlagSort;
   limit: number;
@@ -59,6 +62,57 @@ function parseAccount(raw: unknown, errors: ErrorDetail[]): string | undefined {
     return undefined;
   }
   return raw;
+}
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDate(field: string, raw: unknown, errors: ErrorDetail[]): string | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'string' || !DATE_PATTERN.test(raw) || kuwaitDayStartMs(raw) === null) {
+    errors.push({ field, problem: 'Must be a real date like 2026-10-25.', value: raw });
+    return undefined;
+  }
+  return raw;
+}
+
+/** Reads the filters shared by the flags list and the summary. */
+function parseTransactionFilters(query: RawQuery, errors: ErrorDetail[]): TransactionFilters {
+  const account_id = parseAccount(query.account_id, errors);
+  const date_from = parseDate('date_from', query.date_from, errors);
+  const date_to = parseDate('date_to', query.date_to, errors);
+  if (date_from && date_to && date_from > date_to) {
+    errors.push({ field: 'date_to', problem: 'Must not be before date_from.', value: query.date_to });
+  }
+
+  let segment: string | undefined;
+  if (query.segment !== undefined) {
+    if (typeof query.segment === 'string' && (CUSTOMER_SEGMENTS as readonly string[]).includes(query.segment)) {
+      segment = query.segment;
+    } else {
+      errors.push({ field: 'segment', problem: `Must be one of ${CUSTOMER_SEGMENTS.join(', ')}.`, value: query.segment });
+    }
+  }
+
+  let branch: string | undefined;
+  if (query.branch !== undefined) {
+    if (typeof query.branch !== 'string' || query.branch.trim() === '' || query.branch.length > 100) {
+      errors.push({ field: 'branch', problem: 'Must be a branch name, up to 100 characters.', value: query.branch });
+    } else {
+      branch = query.branch;
+    }
+  }
+
+  let min_amount_fils: number | undefined;
+  if (query.min_amount_kwd !== undefined) {
+    const fils = typeof query.min_amount_kwd === 'string' ? parseKwdToFils(query.min_amount_kwd) : null;
+    if (fils === null) {
+      errors.push({ field: 'min_amount_kwd', problem: 'Must be an amount like 3000 or 3000.500 (at most 3 decimals).', value: query.min_amount_kwd });
+    } else {
+      min_amount_fils = fils;
+    }
+  }
+
+  return { account_id, date_from, date_to, segment, branch, min_amount_fils };
 }
 
 function parseInteger(
@@ -99,17 +153,17 @@ export function parseFlagsQuery(query: RawQuery): Parsed<FlagsQuery> {
     }
   }
 
-  const account_id = parseAccount(query.account_id, errors);
+  const filters = parseTransactionFilters(query, errors);
   const limit = parseInteger('limit', query.limit, DEFAULT_LIMIT, 1, MAX_LIMIT, errors);
   const offset = parseInteger('offset', query.offset, 0, 0, Number.MAX_SAFE_INTEGER, errors);
 
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { rule, sort, account_id, limit, offset } };
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { rule, sort, ...filters, limit, offset } };
 }
 
-export function parseSummaryQuery(query: RawQuery): Parsed<AccountFilter> {
+export function parseSummaryQuery(query: RawQuery): Parsed<TransactionFilters> {
   const errors: ErrorDetail[] = [];
-  const account_id = parseAccount(query.account_id, errors);
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { account_id } };
+  const filters = parseTransactionFilters(query, errors);
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: filters };
 }
 
 export function parseNotAssessedQuery(query: RawQuery): Parsed<AccountFilter & { limit: number; offset: number }> {

@@ -43,7 +43,18 @@ export interface Summary {
   total_transactions: number;
 }
 
+export type TransactionFilters = {
+  account_id?: string;
+  date_from?: string;
+  date_to?: string;
+  segment?: string;
+  branch?: string;
+  min_amount_kwd?: string;
+};
+
 export interface ConfigInfo {
+  customer_segments: string[];
+  branches: string[];
   large_amount_kwd: string;
   velocity: { min_count: number; window_minutes: number };
   high_risk_countries: { country_code: string; country_name: string; reason: string }[];
@@ -88,9 +99,9 @@ async function get<T>(path: string, params: Record<string, string | number | und
 }
 
 export const api = {
-  flags: (params: { rule?: RuleId; sort?: FlagSort; account_id?: string; limit: number; offset: number }, signal?: AbortSignal) =>
+  flags: (params: TransactionFilters & { rule?: RuleId; sort?: FlagSort; limit: number; offset: number }, signal?: AbortSignal) =>
     get<FlagsPage>('/flags', params, signal),
-  summary: (params: { account_id?: string }, signal?: AbortSignal) => get<Summary>('/flags/summary', params, signal),
+  summary: (params: TransactionFilters, signal?: AbortSignal) => get<Summary>('/flags/summary', params, signal),
   notAssessed: (params: { account_id?: string; limit: number }, signal?: AbortSignal) =>
     get<NotAssessedPage>('/not-assessed', { ...params, offset: 0 }, signal),
   transaction: (id: string, signal?: AbortSignal) => get<FlaggedTransaction>(`/transactions/${encodeURIComponent(id)}`, {}, signal),
