@@ -44,6 +44,23 @@ describe('GET /api/flags', () => {
     expect([...times].sort().reverse()).toEqual(times);
   });
 
+  it('sorts by number of flags, then newest first, and rejects an unknown sort', async () => {
+    const res = await request(app).get('/api/flags?sort=most_flags&limit=500');
+    const counts = res.body.items.map((i: { flags: unknown[] }) => i.flags.length);
+    expect(counts[0]).toBeGreaterThan(1);
+    expect(counts).toEqual([...counts].sort((a, b) => b - a));
+    const lastMulti = counts.lastIndexOf(2);
+    const multiTimes = res.body.items.slice(0, lastMulti + 1).map((i: { timestamp: string }) => i.timestamp);
+    expect(multiTimes).toEqual([...multiTimes].sort().reverse());
+    expect(res.body.items[0].transaction_id).toBe(
+      (await request(app).get('/api/flags?limit=500')).body.items.find((i: { flags: unknown[] }) => i.flags.length > 1).transaction_id,
+    );
+
+    const bad = await request(app).get('/api/flags?sort=oldest');
+    expect(bad.status).toBe(400);
+    expect(errorOf(bad.body).details?.[0].field).toBe('sort');
+  });
+
   it('filters by rule but still shows all the rules that fired on each transaction', async () => {
     const res = await request(app).get('/api/flags?rule=HIGH_RISK_COUNTRY&limit=500');
     expect(res.body.total).toBe(16);

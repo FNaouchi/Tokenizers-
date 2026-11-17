@@ -56,12 +56,12 @@ Base path `/api`. JSON, snake_case. Money is a string with 3 decimals. Timestamp
 
 ## GET /api/flags
 
-Returns flagged transactions, newest first. Each transaction appears once with all the flags that fired.
+Returns flagged transactions, newest first by default. Each transaction appears once with all the flags that fired.
 
-- **Query:** `rule` (optional, one of `LARGE_AMOUNT`, `VELOCITY`, `HIGH_RISK_COUNTRY`), `account_id` (optional, `ACC-` followed by digits), `limit` (optional, 1 to 500, default 50), `offset` (optional, default 0).
+- **Query:** `rule` (optional, one of `LARGE_AMOUNT`, `VELOCITY`, `HIGH_RISK_COUNTRY`), `sort` (optional, `newest` (default) or `most_flags`: transactions with the most flags first, then newest first), `account_id` (optional, `ACC-` followed by digits), `limit` (optional, 1 to 500, default 50), `offset` (optional, default 0).
 - **Filter behaviour:** with `rule`, only transactions that fired that rule are returned, and their `flags` still list every rule that fired.
 - **Response 200:** `{"items": [Flagged transaction], "total": 115, "limit": 50, "offset": 0}`
-- **Errors:** `400` `VALIDATION_FAILED` for an unknown `rule`, a malformed `account_id`, or a bad `limit` or `offset`. All problems are reported together. An account with no flags returns `200` with an empty list.
+- **Errors:** `400` `VALIDATION_FAILED` for an unknown `rule` or `sort`, a malformed `account_id`, or a bad `limit` or `offset`. All problems are reported together. An account with no flags returns `200` with an empty list.
 
 ## GET /api/flags/summary
 

@@ -31,8 +31,8 @@ export function createApp(db: Database.Database, config: RulesConfig): Express {
   api.get('/flags', (req, res) => {
     const parsed = parseFlagsQuery(req.query);
     if (!parsed.ok) return sendValidationError(res, parsed.errors);
-    const { limit, offset, ...filters } = parsed.value;
-    res.json(listFlagged(db, filters, { limit, offset }));
+    const { limit, offset, sort, ...filters } = parsed.value;
+    res.json(listFlagged(db, filters, { limit, offset }, sort));
   });
 
   api.get('/flags/summary', (req, res) => {

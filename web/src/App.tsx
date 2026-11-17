@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, type RuleId } from './api';
+import { api, type FlagSort, type RuleId } from './api';
 import { Filters } from './Filters';
 import { FlagTable } from './FlagTable';
 import { ImportPanel } from './ImportPanel';
@@ -13,6 +13,7 @@ const ACCOUNT_PATTERN = /^ACC-\d+$/;
 export function App() {
   const [rule, setRule] = useState<RuleId | undefined>();
   const [accountText, setAccountText] = useState('');
+  const [sort, setSort] = useState<FlagSort>('most_flags');
   const [offset, setOffset] = useState(0);
 
   const trimmed = accountText.trim().toUpperCase();
@@ -22,12 +23,16 @@ export function App() {
   const config = useApi((signal) => api.config(signal), []);
   const summary = useApi((signal) => api.summary({ account_id: account }, signal), [account]);
   const flags = useApi(
-    (signal) => api.flags({ rule, account_id: account, limit: PAGE_SIZE, offset }, signal),
-    [rule, account, offset],
+    (signal) => api.flags({ rule, sort, account_id: account, limit: PAGE_SIZE, offset }, signal),
+    [rule, sort, account, offset],
   );
 
   const changeRule = (next: RuleId | undefined) => {
     setRule(next);
+    setOffset(0);
+  };
+  const changeSort = (next: FlagSort) => {
+    setSort(next);
     setOffset(0);
   };
   const changeAccount = (text: string) => {
@@ -60,6 +65,8 @@ export function App() {
         rule={rule}
         accountText={accountText}
         accountValid={accountValid}
+        sort={sort}
+        onSortChange={changeSort}
         onRuleChange={changeRule}
         onAccountTextChange={changeAccount}
         onClear={() => {

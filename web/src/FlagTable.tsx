@@ -49,6 +49,7 @@ export function FlagTable({ items, onAccountClick }: Props) {
                   >
                     {isOpen ? '▾' : '▸'} {txn.transaction_id}
                   </button>
+                  {txn.flags.length > 1 && <span className="flag-count">{txn.flags.length} flags</span>}
                   <div className="meta">
                     {txn.direction} · {txn.transaction_type} · {txn.channel}
                   </div>

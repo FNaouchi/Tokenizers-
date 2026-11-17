@@ -1,5 +1,7 @@
 export type RuleId = 'LARGE_AMOUNT' | 'VELOCITY' | 'HIGH_RISK_COUNTRY';
 
+export type FlagSort = 'newest' | 'most_flags';
+
 export const RULE_IDS: RuleId[] = ['LARGE_AMOUNT', 'VELOCITY', 'HIGH_RISK_COUNTRY'];
 
 export interface Flag {
@@ -86,7 +88,7 @@ async function get<T>(path: string, params: Record<string, string | number | und
 }
 
 export const api = {
-  flags: (params: { rule?: RuleId; account_id?: string; limit: number; offset: number }, signal?: AbortSignal) =>
+  flags: (params: { rule?: RuleId; sort?: FlagSort; account_id?: string; limit: number; offset: number }, signal?: AbortSignal) =>
     get<FlagsPage>('/flags', params, signal),
   summary: (params: { account_id?: string }, signal?: AbortSignal) => get<Summary>('/flags/summary', params, signal),
   notAssessed: (params: { account_id?: string; limit: number }, signal?: AbortSignal) =>

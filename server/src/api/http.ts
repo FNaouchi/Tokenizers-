@@ -40,8 +40,12 @@ export interface AccountFilter {
   account_id?: string;
 }
 
+export const FLAG_SORTS = ['newest', 'most_flags'] as const;
+export type FlagSort = (typeof FLAG_SORTS)[number];
+
 export interface FlagsQuery extends AccountFilter {
   rule?: RuleId;
+  sort: FlagSort;
   limit: number;
   offset: number;
 }
@@ -86,11 +90,20 @@ export function parseFlagsQuery(query: RawQuery): Parsed<FlagsQuery> {
     }
   }
 
+  let sort: FlagSort = 'newest';
+  if (query.sort !== undefined) {
+    if (typeof query.sort === 'string' && (FLAG_SORTS as readonly string[]).includes(query.sort)) {
+      sort = query.sort as FlagSort;
+    } else {
+      errors.push({ field: 'sort', problem: `Must be one of ${FLAG_SORTS.join(', ')}.`, value: query.sort });
+    }
+  }
+
   const account_id = parseAccount(query.account_id, errors);
   const limit = parseInteger('limit', query.limit, DEFAULT_LIMIT, 1, MAX_LIMIT, errors);
   const offset = parseInteger('offset', query.offset, 0, 0, Number.MAX_SAFE_INTEGER, errors);
 
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { rule, account_id, limit, offset } };
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { rule, sort, account_id, limit, offset } };
 }
 
 export function parseSummaryQuery(query: RawQuery): Parsed<AccountFilter> {

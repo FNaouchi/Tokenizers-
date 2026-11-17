@@ -96,10 +96,18 @@ function attachFlags(db: Database.Database, rows: TransactionRow[]): FlaggedTran
   }));
 }
 
-/** Flagged transactions, newest first. Each appears once with every rule that fired. */
-export function listFlagged(db: Database.Database, filters: FlagFilters, page: Page) {
+const NEWEST_FIRST = 't.ts_epoch_ms DESC, t.transaction_id DESC';
+const MOST_FLAGS_FIRST = `(SELECT COUNT(*) FROM flags fc WHERE fc.transaction_id = t.transaction_id) DESC, ${NEWEST_FIRST}`;
+
+/** Flagged transactions, newest first or most flags first. Each appears once with every rule that fired. */
+export function listFlagged(
+  db: Database.Database,
+  filters: FlagFilters,
+  page: Page,
+  sort: 'newest' | 'most_flags' = 'newest',
+) {
   const { where, params } = flaggedWhere(filters);
-  return listPage(db, where, params, page);
+  return listPage(db, where, params, page, sort === 'most_flags' ? MOST_FLAGS_FIRST : NEWEST_FIRST);
 }
 
 /** Which rules could not be checked, given a transaction's data-quality notes. */
@@ -125,7 +133,13 @@ export function listNotAssessed(db: Database.Database, filters: { account_id?: s
   };
 }
 
-function listPage(db: Database.Database, where: string, params: Record<string, string>, page: Page) {
+function listPage(
+  db: Database.Database,
+  where: string,
+  params: Record<string, string>,
+  page: Page,
+  orderBy: string = NEWEST_FIRST,
+) {
   const total = (
     db.prepare(`SELECT COUNT(*) AS n FROM transactions t WHERE ${where}`).get(params) as { n: number }
   ).n;
@@ -134,7 +148,7 @@ function listPage(db: Database.Database, where: string, params: Record<string, s
       `SELECT ${TRANSACTION_COLUMNS}
        FROM transactions t JOIN accounts a ON a.account_id = t.account_id
        WHERE ${where}
-       ORDER BY t.ts_epoch_ms DESC, t.transaction_id DESC
+       ORDER BY ${orderBy}
        LIMIT @limit OFFSET @offset`,
     )
     .all({ ...params, limit: page.limit, offset: page.offset }) as TransactionRow[];

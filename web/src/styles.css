@@ -72,6 +72,8 @@ table.related tr.self td { font-weight: 700; background: #f0f5ff; }
 .dq { margin-top: 6px; }
 .dq-badge { background: #e5e7eb; color: #374151; }
 
+.flag-count { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 4px; background: var(--risk); color: #fff; font-size: 0.72rem; font-weight: 700; }
+
 .segment { font-size: 0.75rem; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: #e5e7eb; }
 .segment-CORPORATE { background: #dbeafe; color: #1e40af; }
 .segment-SME { background: #dcfce7; color: #166534; }
