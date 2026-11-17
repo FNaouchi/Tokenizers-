@@ -52,10 +52,9 @@ main[aria-busy='true'] { opacity: 0.65; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); font-size: 0.88rem; }
-table.flags { min-width: 1000px; }
-table.flags td:nth-child(3) { white-space: nowrap; }
-table.flags td:nth-child(2) { min-width: 190px; }
-table.flags td:last-child { min-width: 340px; }
+table.flags td.txn { min-width: 190px; }
+table.flags td.why { min-width: 300px; }
+table.flags td[data-label='Account'] { white-space: nowrap; }
 th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: left; }
 th { background: #eef0f4; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -90,3 +89,20 @@ table.related tr.self td { font-weight: 700; background: #f0f5ff; }
 .import-panel dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 12px 0 4px; }
 .import-panel dt { font-size: 0.8rem; color: var(--muted); }
 .import-panel dd { margin: 0; font-size: 1.2rem; font-weight: 700; }
+
+@media (max-width: 760px) {
+  .app { padding: 16px 12px 40px; }
+  table.flags, table.flags tbody, table.flags tr, table.flags td { display: block; width: 100%; }
+  table.flags thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.flags { background: none; border: 0; }
+  table.flags tr { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; padding: 6px 0; }
+  table.flags td { border: 0; padding: 3px 12px; }
+  table.flags td[data-label]:not(.why):not(.txn)::before {
+    content: attr(data-label); display: inline-block; min-width: 110px; color: var(--muted); font-size: 0.8rem;
+  }
+  table.flags td.num { text-align: left; }
+  table.flags td.why { order: 0; padding-top: 6px; padding-bottom: 6px; }
+  table.flags td.txn, table.flags td.why { min-width: 0; }
+  table.flags tr.detail { padding: 0; }
+  table.related { display: block; overflow-x: auto; }
+}

@@ -25,12 +25,12 @@ export function FlagTable({ items, onAccountClick }: Props) {
         <tr>
           <th>Time (Kuwait)</th>
           <th>Transaction</th>
+          <th>Why it was flagged</th>
           <th>Account</th>
           <th>Segment</th>
           <th>Branch</th>
           <th className="num">Amount (KWD)</th>
           <th>Country</th>
-          <th>Why it was flagged</th>
         </tr>
       </thead>
       <tbody>
@@ -39,8 +39,8 @@ export function FlagTable({ items, onAccountClick }: Props) {
           return (
             <Fragment key={txn.transaction_id}>
               <tr className={isOpen ? 'open' : undefined}>
-                <td className="nowrap">{formatTime(txn.timestamp)}</td>
-                <td>
+                <td className="nowrap" data-label="Time (Kuwait)">{formatTime(txn.timestamp)}</td>
+                <td className="txn">
                   <button
                     type="button"
                     className="link-button"
@@ -53,18 +53,7 @@ export function FlagTable({ items, onAccountClick }: Props) {
                     {txn.direction} · {txn.transaction_type} · {txn.channel}
                   </div>
                 </td>
-                <td>
-                  <button type="button" className="link-button" title="Filter by this account" onClick={() => onAccountClick(txn.account.account_id)}>
-                    {txn.account.account_id}
-                  </button>
-                </td>
-                <td>
-                  <span className={`segment segment-${txn.account.customer_segment}`}>{txn.account.customer_segment}</span>
-                </td>
-                <td>{txn.account.home_branch}</td>
-                <td className="num">{txn.amount_kwd ?? '—'}</td>
-                <td>{txn.counterparty_country ?? '—'}</td>
-                <td>
+                <td data-label="Why it was flagged" className="why">
                   <ul className="reasons">
                     {txn.flags.map((flag) => (
                       <li key={flag.rule_id}>
@@ -82,10 +71,21 @@ export function FlagTable({ items, onAccountClick }: Props) {
                     </div>
                   )}
                 </td>
+                <td data-label="Account">
+                  <button type="button" className="link-button" title="Filter by this account" onClick={() => onAccountClick(txn.account.account_id)}>
+                    {txn.account.account_id}
+                  </button>
+                </td>
+                <td data-label="Segment">
+                  <span className={`segment segment-${txn.account.customer_segment}`}>{txn.account.customer_segment}</span>
+                </td>
+                <td data-label="Branch">{txn.account.home_branch}</td>
+                <td className="num" data-label="Amount (KWD)">{txn.amount_kwd ?? '—'}</td>
+                <td data-label="Country">{txn.counterparty_country ?? '—'}</td>
               </tr>
               {isOpen && (
                 <tr className="detail">
-                  <td colSpan={8}>
+                  <td colSpan={8} className="detail-cell">
                     <RelatedTransactions transaction={txn} />
                   </td>
                 </tr>
