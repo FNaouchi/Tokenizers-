@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { api, type Flag, type FlaggedTransaction } from './api';
-import { dataQualityNote, describeTransaction, reasonValues } from './format';
+import { dataQualityNote, describeTransaction, formatAmount, reasonValues } from './format';
 import { RULE_LABELS } from './SummaryCards';
 import { useApi } from './useApi';
 
@@ -187,7 +187,7 @@ export function FlagTable({ items, onAccountClick }: Props) {
                 <span className={`segment segment-${txn.account.customer_segment}`}>{txn.account.customer_segment}</span>
               </td>
               <td data-label="Branch">{txn.account.home_branch}</td>
-              <td className="num" data-label="Amount (KWD)">{txn.amount_kwd ?? '—'}</td>
+              <td className="num" data-label="Amount (KWD)">{formatAmount(txn.amount_kwd)}</td>
               <td data-label="Country">{txn.counterparty_country ?? '—'}</td>
             </tr>
           );
@@ -225,7 +225,7 @@ function BurstTransactions({ row, pageItems }: { row: Extract<Row, { kind: 'burs
           <tr key={txn.transaction_id}>
             <td className="nowrap" data-label="Time (Kuwait)">{formatTime(txn.timestamp)}</td>
             <td data-label="Transaction">{txn.transaction_id}</td>
-            <td className="num" data-label="Amount (KWD)">{txn.amount_kwd ?? '—'}</td>
+            <td className="num" data-label="Amount (KWD)">{formatAmount(txn.amount_kwd)}</td>
             <td data-label="Country">{txn.counterparty_country ?? '—'}</td>
             <td data-label="Other flags and notes">
               {txn.flags
