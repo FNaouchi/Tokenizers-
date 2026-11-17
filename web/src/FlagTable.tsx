@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
 import { api, type Flag, type FlaggedTransaction } from './api';
+import { reasonValues } from './format';
 import { RULE_LABELS } from './SummaryCards';
 import { useApi } from './useApi';
 
@@ -122,7 +123,7 @@ export function FlagTable({ items, onAccountClick }: Props) {
                   <td data-label="Why it was flagged" className="why">
                     <ul className="reasons">
                       <li>
-                        <span className="badge rule-VELOCITY">{RULE_LABELS.VELOCITY}</span> {row.velocity.reason}
+                        <span className="badge rule-VELOCITY">{RULE_LABELS.VELOCITY}</span> {reasonValues(row.velocity)}
                       </li>
                     </ul>
                   </td>
@@ -163,7 +164,7 @@ export function FlagTable({ items, onAccountClick }: Props) {
                 <ul className="reasons">
                   {txn.flags.map((flag) => (
                     <li key={flag.rule_id}>
-                      <span className={`badge rule-${flag.rule_id}`}>{RULE_LABELS[flag.rule_id]}</span> {flag.reason}
+                      <span className={`badge rule-${flag.rule_id}`}>{RULE_LABELS[flag.rule_id]}</span> {reasonValues(flag)}
                     </li>
                   ))}
                 </ul>
