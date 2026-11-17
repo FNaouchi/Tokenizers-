@@ -23,6 +23,7 @@ h1 { margin: 0; font-size: 1.6rem; }
 .limits { margin: 4px 0 20px; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.cards.stale { opacity: 0.4; }
 .card {
   display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 14px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; font: inherit; color: inherit;

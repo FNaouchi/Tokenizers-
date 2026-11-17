@@ -28,6 +28,13 @@ export interface FlagsPage {
   offset: number;
 }
 
+export interface NotAssessedPage {
+  items: (FlaggedTransaction & { not_assessed: RuleId[] })[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface Summary {
   by_rule: Record<RuleId, number>;
   flagged_transactions: number;
@@ -48,6 +55,7 @@ export type ImportReport = Record<
   | 'missing_amount'
   | 'missing_country'
   | 'country_normalised'
+  | 'invalid_country'
   | 'utc_timestamps',
   number
 >;
@@ -81,6 +89,8 @@ export const api = {
   flags: (params: { rule?: RuleId; account_id?: string; limit: number; offset: number }, signal?: AbortSignal) =>
     get<FlagsPage>('/flags', params, signal),
   summary: (params: { account_id?: string }, signal?: AbortSignal) => get<Summary>('/flags/summary', params, signal),
+  notAssessed: (params: { account_id?: string; limit: number }, signal?: AbortSignal) =>
+    get<NotAssessedPage>('/not-assessed', { ...params, offset: 0 }, signal),
   transaction: (id: string, signal?: AbortSignal) => get<FlaggedTransaction>(`/transactions/${encodeURIComponent(id)}`, {}, signal),
   config: (signal?: AbortSignal) => get<ConfigInfo>('/config', {}, signal),
   importReport: (signal?: AbortSignal) => get<ImportReport>('/import-report', {}, signal),

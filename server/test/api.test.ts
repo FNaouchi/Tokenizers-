@@ -1,6 +1,7 @@
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/api/app.js';
+import { createFreshDatabase } from '../src/db.js';
 import { defaultConfig, loadRealDatabase } from './helpers.js';
 
 let app: ReturnType<typeof createApp>;
@@ -213,8 +214,71 @@ describe('GET /api/import-report', () => {
       missing_amount: 1,
       missing_country: 3,
       country_normalised: 2,
+      invalid_country: 0,
       utc_timestamps: 3,
     });
+  });
+  it('returns 404 when the database has no import report', async () => {
+    const empty = createApp(createFreshDatabase(':memory:'), defaultConfig());
+    const res = await request(empty).get('/api/import-report');
+    expect(res.status).toBe(404);
+    expect(errorOf(res.body).code).toBe('NOT_FOUND');
+  });
+});
+
+describe('GET /api/not-assessed', () => {
+  it('lists the transactions a rule could not check, with which rule was skipped', async () => {
+    const res = await request(app).get('/api/not-assessed');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 4, limit: 50, offset: 0 });
+    const byId = Object.fromEntries(res.body.items.map((i: { transaction_id: string }) => [i.transaction_id, i]));
+    expect(Object.keys(byId).sort()).toEqual(['TXN-000921', 'TXN-001143', 'TXN-002893', 'TXN-003002']);
+    expect(byId['TXN-000921']).toMatchObject({ amount_kwd: null, data_quality: ['MISSING_AMOUNT'], not_assessed: ['LARGE_AMOUNT'] });
+    expect(byId['TXN-001143']).toMatchObject({ counterparty_country: null, not_assessed: ['HIGH_RISK_COUNTRY'] });
+    expect(byId['TXN-001143'].account).toHaveProperty('customer_segment');
+  });
+
+  it('filters by account and pages the results', async () => {
+    const one = await request(app).get('/api/not-assessed?account_id=ACC-100133');
+    expect(one.body.items.map((i: { transaction_id: string }) => i.transaction_id)).toEqual(['TXN-000921']);
+    const paged = await request(app).get('/api/not-assessed?limit=1&offset=3');
+    expect(paged.body).toMatchObject({ total: 4, limit: 1, offset: 3 });
+    expect(paged.body.items).toHaveLength(1);
+  });
+
+  it('returns 400 for a malformed account, a bad limit or a bad offset', async () => {
+    const res = await request(app).get('/api/not-assessed?account_id=x&limit=0&offset=-1');
+    expect(res.status).toBe(400);
+    expect(errorOf(res.body).details?.map((d) => d.field)).toEqual(['account_id', 'limit', 'offset']);
+  });
+});
+
+describe('errors', () => {
+  it('returns 400 BAD_REQUEST, not 500, for a badly encoded URL', async () => {
+    const res = await request(app).get('/api/transactions/%E0%A4%A');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: { code: 'BAD_REQUEST', message: 'The request could not be read.', details: [] } });
+  });
+
+  it('returns 500 with a general message and no internal details when something fails', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, config } = loadRealDatabase();
+    const broken = createApp(db, config);
+    db.close();
+    const res = await request(broken).get('/api/flags');
+    log.mockRestore();
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong.', details: [] } });
+  });
+
+  it('always includes a details array', async () => {
+    const res = await request(app).get('/api/transactions/TXN-999999');
+    expect(res.body.error.details).toEqual([]);
+  });
+
+  it('refuses to start with a limit that cannot be shown', () => {
+    const { db } = loadRealDatabase();
+    expect(() => createApp(db, { ...defaultConfig(), largeAmountKwd: 'oops' })).toThrow(/Invalid large amount limit/);
   });
 });
 

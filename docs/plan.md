@@ -31,12 +31,12 @@ A compliance analyst needs a local app that flags suspicious transactions in the
 | 3 | Bursts | Every transaction in any qualifying window gets the flag. Its reason shows the largest window that contains it, and `details.related_transaction_ids` lists the others. |
 | 4 | Boundaries | 3,000.000 KWD **is** flagged and 2,999.999 KWD is not. A span of exactly 60:00 **is** inside the window (ACC-100069), but 60:01 is not (ACC-100054). 4 transactions do not trigger VELOCITY. |
 | 5a | Duplicate IDs (TXN-001166, TXN-002808) | Keep the first row. Identical repeats are logged in `import_rejects` as `DUPLICATE_IDENTICAL` and counted in the report. A repeat with different content goes to `import_rejects` as `DUPLICATE_CONFLICT`. Duplicates are removed before the rules run. Without this, ACC-100107 would get a false burst and TXN-001166 would be counted twice. |
-| 5b | Missing country (TXN-001143, TXN-002893, TXN-003002) | Store NULL and add a `MISSING_COUNTRY` data-quality note. HIGH_RISK_COUNTRY can't fire, but the other rules still apply. |
-| 5c | Missing amount (TXN-000921) | Keep the row with a NULL amount and add a `MISSING_AMOUNT` note. LARGE_AMOUNT is skipped, but the row still counts for VELOCITY and HIGH_RISK_COUNTRY. |
-| 5d | Country case or spaces (`xd`, ` xb`) | Trim and upper-case the code before storing and comparing it, and add a `COUNTRY_NORMALISED` note. The high-risk list gets the same normalisation. |
+| 5b | Missing country (TXN-001143, TXN-002893, TXN-003002) | Store NULL and add a `MISSING_COUNTRY` data-quality note. HIGH_RISK_COUNTRY can't fire, but the other rules still apply. The row is listed by `GET /api/not-assessed` (added after review, see "Review findings"). |
+| 5c | Missing amount (TXN-000921) | Keep the row with a NULL amount and add a `MISSING_AMOUNT` note. LARGE_AMOUNT is skipped, but the row still counts for VELOCITY and HIGH_RISK_COUNTRY. Also listed by `GET /api/not-assessed`. |
+| 5d | Country case or spaces (`xd`, ` xb`) | Trim and upper-case the code before storing and comparing it, and add a `COUNTRY_NORMALISED` note. The high-risk list gets the same normalisation. A code that is still not two letters after cleaning is stored as NULL with an `INVALID_COUNTRY` note, so the row is not lost to the other rules (changed after review). |
 | 5e | Late rows (TXN-003073 to TXN-003077) | File order is ignored, and VELOCITY sorts by UTC time for each account. TXN-003074 completes the ACC-100072 burst. |
 | 5f | `Z` timestamps (TXN-001557, TXN-001857, TXN-002458) | Store as a UTC instant and display in +03:00. TXN-002458 (07:20Z = 10:20 Kuwait time) completes the ACC-100023 burst. |
-| 5g | Other bad rows (bad timestamp or amount format, unknown account) | Reject to `import_rejects` with a reason. None are expected in this data. |
+| 5g | Other bad rows (bad timestamp or amount format, unknown account, invalid direction, missing required field) | Reject to `import_rejects` with a reason. None are expected in this data. A malformed row in `high_risk_countries.csv` stops the import instead, because dropping it would silently stop a country from being treated as high risk. |
 | 6 | Money | Integer fils everywhere. The API returns `"3000.000"` strings. |
 
 ## Golden numbers (acceptance test on the real data)
@@ -137,3 +137,24 @@ D0 → D1 → D2 → D3 → D4 → D5. D6.1 can be done at any time. D6.2 needs 
 | **Total** | | | **920** |
 
 **Mid-point check (after D3):** compare actual usage with the budget. If usage is more than 15% over, move D5.3 and D6.4 to Haiku at high effort, and narrow the context further.
+
+---
+
+## Review findings (D7.1, Reviewer agent)
+
+The Reviewer agent (read-only) reviewed the rules, importer, API and front end against the brief and this plan. It found no High issues and confirmed the limits, burst logic, reasons, order independence, decimal handling and API contract. It caught these gaps, which were fixed in D7.2, each with a regression test:
+
+| # | Severity | What it caught | Fix | Test |
+|---|---|---|---|---|
+| M1 | Medium | A malformed country code (`KWT`, `1A`) rejected the whole row, hiding a possible large amount or burst from the other rules. | Load the row with a NULL country and an `INVALID_COUNTRY` note. New `invalid_country` count in the import report. | `importer.test.ts`: "keeps a row whose country is not two letters" |
+| M2 | Medium | A malformed row in the high-risk list was dropped quietly, so a country would silently stop being high risk. | The import stops with an `ImportError` listing every bad row. | `importer.test.ts`: "stops the import when the high-risk list has a malformed entry" |
+| M3 | Medium | Transactions with no amount or no usable country were never checked by one rule, and were invisible unless flagged for another reason. | New `GET /api/not-assessed` and a "Not fully checked" panel on the dashboard. | `api.test.ts`: `GET /api/not-assessed` |
+| L1 | Low | A badly encoded URL returned 500 instead of 400. | The error handler keeps 4xx statuses and returns `BAD_REQUEST`. | `api.test.ts`: "returns 400 BAD_REQUEST, not 500" |
+| L2 | Low | 404 and 500 bodies had no `details` array. | Every error has `details`, and `docs/api.md` says so. | `api.test.ts`: "always includes a details array" |
+| L3 | Low | The 404 from `/api/import-report` was undocumented. | Documented, and tested. | `api.test.ts`: "returns 404 when the database has no import report" |
+| L4 | Low | `/api/config` showed `0.000` if the limit couldn't be parsed. | `createApp` throws instead. Config also rejects a limit of 0. | `api.test.ts`, `config.test.ts` |
+| L5 | Low | A startup comment said flags always match the config, but the country list only changes on import. | Comment corrected. | none (comment) |
+| L6 | Low | A half-typed account id silently showed the unfiltered list. | The table is replaced by a "finish typing" message and the cards are dimmed. | checked in the browser |
+| L7 | Low | Test gaps: missing data in VELOCITY, invalid environment overrides, the error handler, and a misleading config test. | Added or corrected. | `velocity.test.ts`, `config.test.ts`, `api.test.ts` |
+
+**Where Copilot needed correcting:** the first draft of D1 pinned a `better-sqlite3` version that does not compile on Node 26; it was bumped to ^13. The first importer rejected rows too eagerly, which is what the Reviewer then caught as M1. The plan's own decision table said "reject" for malformed values without weighing what a rejected row hides from the other rules.

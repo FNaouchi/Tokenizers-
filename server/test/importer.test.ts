@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ImportError } from '../src/import/importer.js';
 import { parseTimestamp } from '../src/time.js';
 import { csvRow, importFixture, loadRealDatabase } from './helpers.js';
 
@@ -78,17 +79,43 @@ describe('importer: country codes', () => {
     expect(report.country_normalised).toBe(2);
   });
 
-  it('rejects a code that is not two letters after cleaning', () => {
-    const { report, db } = importFixture({
-      transactions: [csvRow({ transaction_id: 'TXN-1', counterparty_country: 'KWT' }), csvRow({ transaction_id: 'TXN-2', counterparty_country: '1A' })],
+  it('keeps a row whose country is not two letters, with no country and a note, so other rules still see it', () => {
+    const { db, report } = importFixture({
+      transactions: [
+        csvRow({ transaction_id: 'TXN-1', counterparty_country: 'KWT', amount_kwd: '5000.000' }),
+        csvRow({ transaction_id: 'TXN-2', counterparty_country: '1A' }),
+      ],
     });
-    expect(report).toMatchObject({ rows_loaded: 0, rows_rejected: 2 });
-    expect(rejects(db).map((r) => r.reason)).toEqual(['INVALID_COUNTRY_CODE', 'INVALID_COUNTRY_CODE']);
+    expect(report).toMatchObject({ rows_loaded: 2, rows_rejected: 0, invalid_country: 2 });
+    expect(stored(db, 'TXN-1')?.counterparty_country).toBeNull();
+    expect(stored(db, 'TXN-1')?.amount_kwd_fils).toBe(5_000_000);
+    expect(JSON.parse(stored(db, 'TXN-1')!.dq_notes)).toEqual(['INVALID_COUNTRY']);
+    expect(rejects(db)).toEqual([]);
   });
 
   it('normalises the high-risk list itself', () => {
     const { db } = importFixture({ transactions: [csvRow()], highRisk: [' xb ,Belvaria,Fictional'] });
     expect(db.prepare('SELECT country_code FROM high_risk_countries').all()).toEqual([{ country_code: 'XB' }]);
+  });
+
+  it('stops the import when the high-risk list has a malformed entry, instead of silently dropping it', () => {
+    expect(() =>
+      importFixture({ transactions: [csvRow()], highRisk: ['XB,Belvaria,Fictional', 'X1,Brokenia,Fictional', 'XC,,Fictional'] }),
+    ).toThrow(ImportError);
+    try {
+      importFixture({ transactions: [csvRow()], highRisk: ['X1,Brokenia,Fictional', 'XC,,Fictional'] });
+    } catch (err) {
+      expect((err as ImportError).problems).toHaveLength(2);
+    }
+  });
+
+  it('ignores a repeated entry in the high-risk list', () => {
+    const { db } = importFixture({
+      transactions: [csvRow()],
+      highRisk: ['XB,Belvaria,Fictional', 'xb,Belvaria,Fictional'],
+    });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM high_risk_countries').get()).toEqual({ n: 1 });
+    expect(rejects(db)).toEqual([{ file: 'high_risk_countries.csv', source_row: 3, reason: 'DUPLICATE_COUNTRY' }]);
   });
 });
 
@@ -175,6 +202,7 @@ describe('importer: real data (golden test)', () => {
       missing_amount: 1,
       missing_country: 3,
       country_normalised: 2,
+      invalid_country: 0,
       utc_timestamps: 3,
     });
   });

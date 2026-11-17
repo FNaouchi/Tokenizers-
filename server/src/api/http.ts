@@ -19,7 +19,15 @@ export function sendValidationError(res: Response, details: ErrorDetail[]): void
 }
 
 export function sendNotFound(res: Response, message: string): void {
-  res.status(404).json({ error: { code: 'NOT_FOUND', message } });
+  res.status(404).json({ error: { code: 'NOT_FOUND', message, details: [] } });
+}
+
+export function sendBadRequest(res: Response): void {
+  res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The request could not be read.', details: [] } });
+}
+
+export function sendInternalError(res: Response): void {
+  res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong.', details: [] } });
 }
 
 const ACCOUNT_PATTERN = /^ACC-\d+$/;
@@ -89,4 +97,12 @@ export function parseSummaryQuery(query: RawQuery): Parsed<AccountFilter> {
   const errors: ErrorDetail[] = [];
   const account_id = parseAccount(query.account_id, errors);
   return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { account_id } };
+}
+
+export function parseNotAssessedQuery(query: RawQuery): Parsed<AccountFilter & { limit: number; offset: number }> {
+  const errors: ErrorDetail[] = [];
+  const account_id = parseAccount(query.account_id, errors);
+  const limit = parseInteger('limit', query.limit, DEFAULT_LIMIT, 1, MAX_LIMIT, errors);
+  const offset = parseInteger('offset', query.offset, 0, 0, Number.MAX_SAFE_INTEGER, errors);
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { account_id, limit, offset } };
 }

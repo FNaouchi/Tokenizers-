@@ -3,6 +3,7 @@ import { api, type RuleId } from './api';
 import { Filters } from './Filters';
 import { FlagTable } from './FlagTable';
 import { ImportPanel } from './ImportPanel';
+import { NotAssessedPanel } from './NotAssessedPanel';
 import { SummaryCards } from './SummaryCards';
 import { useApi } from './useApi';
 
@@ -53,7 +54,7 @@ export function App() {
         {config.error && <p className="error" role="alert">{config.error}</p>}
       </header>
 
-      <SummaryCards summary={summary} activeRule={rule} onSelect={changeRule} />
+      <SummaryCards summary={summary} activeRule={rule} onSelect={changeRule} stale={!accountValid} />
 
       <Filters
         rule={rule}
@@ -69,8 +70,11 @@ export function App() {
       />
 
       <main aria-busy={flags.loading}>
-        {flags.error && <p className="error" role="alert">{flags.error}</p>}
-        {page && (
+        {!accountValid && (
+          <p className="empty">Finish typing a full account id, like ACC-100118. The account filter is not applied yet.</p>
+        )}
+        {accountValid && flags.error && <p className="error" role="alert">{flags.error}</p>}
+        {accountValid && page && (
           <>
             <p className="result-count">
               {page.total === 0 ? 'No results' : `Showing ${first}–${last} of ${page.total} flagged transactions`}
@@ -86,9 +90,10 @@ export function App() {
             </nav>
           </>
         )}
-        {!page && flags.loading && <p className="empty">Loading…</p>}
+        {accountValid && !page && flags.loading && <p className="empty">Loading…</p>}
       </main>
 
+      <NotAssessedPanel account={account} onAccountClick={changeAccount} />
       <ImportPanel />
     </div>
   );

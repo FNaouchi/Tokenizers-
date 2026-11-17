@@ -124,6 +124,13 @@ describe('VELOCITY', () => {
     expect(velocity(txns, DEFAULT_LIMITS)).toHaveLength(5);
   });
 
+  it('counts transactions with a missing amount or country towards a burst', () => {
+    const txns = burst('B', START, [0, 10 * MIN, 20 * MIN, 30 * MIN, 40 * MIN]);
+    txns[1].amount_kwd_fils = null;
+    txns[2].counterparty_country = null;
+    expect(velocity(txns, DEFAULT_LIMITS)).toHaveLength(5);
+  });
+
   it('reads the limits from its argument', () => {
     const txns = burst('B', START, [0, 10 * MIN, 20 * MIN]);
     expect(velocity(txns, DEFAULT_LIMITS)).toEqual([]);

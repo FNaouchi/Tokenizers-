@@ -99,6 +99,33 @@ function attachFlags(db: Database.Database, rows: TransactionRow[]): FlaggedTran
 /** Flagged transactions, newest first. Each appears once with every rule that fired. */
 export function listFlagged(db: Database.Database, filters: FlagFilters, page: Page) {
   const { where, params } = flaggedWhere(filters);
+  return listPage(db, where, params, page);
+}
+
+/** Which rules could not be checked, given a transaction's data-quality notes. */
+export function notAssessedRules(notes: string[]): RuleId[] {
+  const rules: RuleId[] = [];
+  if (notes.includes('MISSING_AMOUNT')) rules.push('LARGE_AMOUNT');
+  if (notes.includes('MISSING_COUNTRY') || notes.includes('INVALID_COUNTRY')) rules.push('HIGH_RISK_COUNTRY');
+  return rules;
+}
+
+/** Transactions a rule could not check because a value was missing or unusable, newest first. */
+export function listNotAssessed(db: Database.Database, filters: { account_id?: string }, page: Page) {
+  const params: Record<string, string> = {};
+  let where = `EXISTS (SELECT 1 FROM json_each(t.dq_notes) WHERE json_each.value IN ('MISSING_AMOUNT','MISSING_COUNTRY','INVALID_COUNTRY'))`;
+  if (filters.account_id) {
+    where += ' AND t.account_id = @account_id';
+    params.account_id = filters.account_id;
+  }
+  const result = listPage(db, where, params, page);
+  return {
+    ...result,
+    items: result.items.map((item) => ({ ...item, not_assessed: notAssessedRules(item.data_quality) })),
+  };
+}
+
+function listPage(db: Database.Database, where: string, params: Record<string, string>, page: Page) {
   const total = (
     db.prepare(`SELECT COUNT(*) AS n FROM transactions t WHERE ${where}`).get(params) as { n: number }
   ).n;
@@ -160,7 +187,7 @@ export function getImportReport(db: Database.Database): Record<string, number> |
   const row = db
     .prepare(
       `SELECT rows_read, rows_loaded, duplicates_dropped, rows_rejected, missing_amount, missing_country,
-         country_normalised, utc_timestamps FROM import_report WHERE id = 1`,
+         country_normalised, invalid_country, utc_timestamps FROM import_report WHERE id = 1`,
     )
     .get() as Record<string, number> | undefined;
   return row ?? null;

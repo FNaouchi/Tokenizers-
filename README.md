@@ -214,38 +214,54 @@ The rubric awards 100 points across the lifecycle. It's the same for every chall
 > [!NOTE]
 > Complete this section before your demo. Your trainer, and other teams, will run your app from it.
 
-- **Team name:**
-- **Team members:**
-- **Stack:**
+- **Team name:** _(team to fill in)_
+- **Team members:** _(team to fill in)_
+- **Stack:** Node 20+ and TypeScript (npm workspaces). Back end: Express and SQLite (`better-sqlite3`). Front end: React and Vite. Tests: Vitest and supertest. Money is held as integer fils (KWD x 1000), never floats.
 
 ### Run it
 
+Needs Node 20 or later. From the repo root:
+
 ```bash
-# Replace with the exact steps to install and run your app.
+npm install
+npm run import                       # rebuilds data/aml.db from the 3 CSVs and applies the rules
+npm run start --workspace server     # API on http://localhost:3001 (terminal 1)
+npm run dev --workspace web          # dashboard on http://localhost:5173 (terminal 2)
 ```
+
+Open http://localhost:5173. `npm run import` is safe to run again, and it prints the import report.
+
+The rule limits live in `config/rules.json`. Change a limit there (or set `AML_LARGE_AMOUNT_KWD`, `AML_VELOCITY_MIN_COUNT`, `AML_VELOCITY_WINDOW_MINUTES`) and restart the server, or run `npm run rules` to re-apply the rules to the existing database. No code change is needed.
+
+The API is described in [`docs/api.md`](docs/api.md). How the data issues are handled is in [`docs/data-import.md`](docs/data-import.md) and the decisions behind the rules are in [`docs/plan.md`](docs/plan.md).
 
 ### Test it
 
 ```bash
-# Replace with the exact command that runs your tests.
+npm test
 ```
+
+131 tests cover each rule, the importer, the real data (a golden test) and every endpoint.
 
 ### Rule-to-test traceability
 
 | Rule | Implemented in | Tested in |
 |---|---|---|
-| `LARGE_AMOUNT` | | |
-| `VELOCITY` | | |
-| `HIGH_RISK_COUNTRY` | | |
+| `LARGE_AMOUNT` | `server/src/rules/largeAmount.ts` | `server/test/amountAndCountry.test.ts` (3,000.000 and 2,999.999, missing amount, other limit), `server/test/importer.test.ts` (real data), `server/test/api.test.ts` |
+| `VELOCITY` | `server/src/rules/velocity.ts` | `server/test/velocity.test.ts` (5 vs 4, exactly 60:00 vs 60:01, rolling bursts, largest-window reason, late rows, `Z` timestamps, midnight, other limits), `server/test/importer.test.ts` (real data), `server/test/api.test.ts` |
+| `HIGH_RISK_COUNTRY` | `server/src/rules/highRiskCountry.ts` | `server/test/amountAndCountry.test.ts` (case and spaces, missing country), `server/test/importer.test.ts` (real data), `server/test/api.test.ts` |
+| Data issues (duplicates, missing values, country codes, `Z` times, late rows) | `server/src/import/importer.ts`, `server/src/money.ts`, `server/src/time.ts` | `server/test/importer.test.ts`, `server/test/money.test.ts`, `server/test/time.test.ts` |
+| Several flags on one transaction | `server/src/rules/engine.ts` | `server/test/engine.test.ts`, `server/test/api.test.ts` |
+| API endpoints | `server/src/api/` | `server/test/api.test.ts` |
 
 ### Copilot retrospective
 
-- **Where Copilot saved us the most time:**
-- **Where we had to correct it:**
+- **Where Copilot saved us the most time:** Profiling the CSVs with a script before planning. It found the exact rows behind each data issue (for example the duplicate that would have created a false burst on ACC-100107), so the plan and the tests could name real transactions and expected counts. The Reviewer agent then found gaps in the rules engine and importer that the tests had not covered.
+- **Where we had to correct it:** The first importer rejected rows too eagerly (a malformed country code dropped the whole transaction from every rule), and a bad row in the high-risk list was dropped silently. The Reviewer caught both, and they are fixed with tests. The first `better-sqlite3` version also did not compile on Node 26. The full list is in [`docs/plan.md`](docs/plan.md#review-findings-d71-reviewer-agent).
 
 ### Evidence checklist
 
-- [ ] Plan: `docs/plan.md`
+- [x] Plan: `docs/plan.md`
 - [ ] Budget, usage readings, mid-point re-plan and before/after example: [`docs/ai-credit-budget.md`](docs/ai-credit-budget.md)
-- [ ] Team conventions: `.github/copilot-instructions.md`
-- [ ] Skills you wrote: `.github/skills/`
+- [x] Team conventions: `.github/copilot-instructions.md`
+- [x] Skills you wrote: `.github/skills/`

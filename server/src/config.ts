@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseKwdToFils } from './money.js';
 
 export interface RulesConfig {
   /** Decimal string with at most 3 places, e.g. "3000.000". */
@@ -58,9 +59,9 @@ export function loadConfig(options: LoadConfigOptions = {}): RulesConfig {
   const problems: string[] = [];
 
   const largeAmount = env.AML_LARGE_AMOUNT_KWD ?? raw.large_amount_kwd;
-  if (typeof largeAmount !== 'string' || !KWD_PATTERN.test(largeAmount)) {
+  if (typeof largeAmount !== 'string' || !KWD_PATTERN.test(largeAmount) || parseKwdToFils(largeAmount) === 0) {
     problems.push(
-      `large_amount_kwd must be a decimal string with at most 3 places, got ${JSON.stringify(largeAmount)}`,
+      `large_amount_kwd must be a decimal string above 0 with at most 3 places, got ${JSON.stringify(largeAmount)}`,
     );
   }
 

@@ -18,7 +18,16 @@ export interface ImportReport {
   missing_amount: number;
   missing_country: number;
   country_normalised: number;
+  invalid_country: number;
   utc_timestamps: number;
+}
+
+/** Thrown when a reference file is too broken to import safely, so the import stops instead of guessing. */
+export class ImportError extends Error {
+  constructor(public readonly problems: string[]) {
+    super(`Import stopped:\n- ${problems.join('\n- ')}`);
+    this.name = 'ImportError';
+  }
 }
 
 type CsvRecord = Record<string, string>;
@@ -69,9 +78,9 @@ export function importAll(db: Database.Database, paths: ImportPaths): ImportRepo
     const report = loadTransactions(db, paths.transactions, reject);
     db.prepare(
       `INSERT INTO import_report (id, rows_read, rows_loaded, duplicates_dropped, rows_rejected,
-         missing_amount, missing_country, country_normalised, utc_timestamps)
+         missing_amount, missing_country, country_normalised, invalid_country, utc_timestamps)
        VALUES (1, @rows_read, @rows_loaded, @duplicates_dropped, @rows_rejected,
-         @missing_amount, @missing_country, @country_normalised, @utc_timestamps)`,
+         @missing_amount, @missing_country, @country_normalised, @invalid_country, @utc_timestamps)`,
     ).run(report);
     return report;
   });
@@ -102,16 +111,25 @@ function loadAccounts(db: Database.Database, path: string, reject: RejectFn): vo
 function loadHighRiskCountries(db: Database.Database, path: string, reject: RejectFn): void {
   const insert = db.prepare('INSERT INTO high_risk_countries (country_code, country_name, reason) VALUES (?, ?, ?)');
   const seen = new Set<string>();
+  const problems: string[] = [];
   readCsv(path).forEach((raw, index) => {
     const row = index + 2;
     const rec = trimmed(raw);
     const code = normaliseCountry(rec.country_code);
-    if (!COUNTRY_PATTERN.test(code)) return reject('high_risk_countries.csv', row, 'INVALID_COUNTRY_CODE', raw);
-    if (!rec.country_name || !rec.reason) return reject('high_risk_countries.csv', row, 'MISSING_FIELD', raw);
+    // A malformed entry would silently stop a country from being treated as high risk, so stop the import.
+    if (!COUNTRY_PATTERN.test(code)) {
+      problems.push(`high_risk_countries.csv row ${row}: invalid country code ${JSON.stringify(raw.country_code)}`);
+      return;
+    }
+    if (!rec.country_name || !rec.reason) {
+      problems.push(`high_risk_countries.csv row ${row}: missing country name or reason for ${code}`);
+      return;
+    }
     if (seen.has(code)) return reject('high_risk_countries.csv', row, 'DUPLICATE_COUNTRY', raw);
     seen.add(code);
     insert.run(code, rec.country_name, rec.reason);
   });
+  if (problems.length > 0) throw new ImportError(problems);
 }
 
 function loadTransactions(db: Database.Database, path: string, reject: RejectFn): ImportReport {
@@ -134,6 +152,7 @@ function loadTransactions(db: Database.Database, path: string, reject: RejectFn)
     missing_amount: 0,
     missing_country: 0,
     country_normalised: 0,
+    invalid_country: 0,
     utc_timestamps: 0,
   };
   const loadedById = new Map<string, string>();
@@ -182,9 +201,14 @@ function loadTransactions(db: Database.Database, path: string, reject: RejectFn)
     if (rec.counterparty_country === '') {
       notes.push('MISSING_COUNTRY');
     } else {
-      country = normaliseCountry(rec.counterparty_country);
-      if (!COUNTRY_PATTERN.test(country)) return rejectRow(row, 'INVALID_COUNTRY_CODE', raw);
-      if (country !== raw.counterparty_country) notes.push('COUNTRY_NORMALISED');
+      const cleaned = normaliseCountry(rec.counterparty_country);
+      if (COUNTRY_PATTERN.test(cleaned)) {
+        country = cleaned;
+        if (cleaned !== raw.counterparty_country) notes.push('COUNTRY_NORMALISED');
+      } else {
+        // Keep the row so the other rules still see it; the bad value is traceable through source_row.
+        notes.push('INVALID_COUNTRY');
+      }
     }
 
     if (timestamp.isUtcSuffix) notes.push('UTC_TIMESTAMP');
@@ -211,6 +235,7 @@ function loadTransactions(db: Database.Database, path: string, reject: RejectFn)
     if (notes.includes('MISSING_AMOUNT')) report.missing_amount += 1;
     if (notes.includes('MISSING_COUNTRY')) report.missing_country += 1;
     if (notes.includes('COUNTRY_NORMALISED')) report.country_normalised += 1;
+    if (notes.includes('INVALID_COUNTRY')) report.invalid_country += 1;
     if (notes.includes('UTC_TIMESTAMP')) report.utc_timestamps += 1;
   });
 

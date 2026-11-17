@@ -18,16 +18,17 @@
 
 | Issue | File and column | Rows | Decision | How | Test |
 |---|---|---:|---|---|---|
-| Identical duplicate `transaction_id` (TXN-001166, TXN-002808) | transactions, `transaction_id` | 2 | Reject as a duplicate | Keep the first row. The repeat is written to `import_rejects` as `DUPLICATE_IDENTICAL` and counted in `duplicates_dropped`, not `rows_rejected`. Done before any rule runs. | D6.4 |
-| Same id, different content | transactions, `transaction_id` | 0 | Reject | Keep the first row. The repeat is rejected as `DUPLICATE_CONFLICT`. | D6.4 |
-| Missing country | transactions, `counterparty_country` | 3 | Flag | Load with NULL and note `MISSING_COUNTRY`. | D6.4 |
-| Missing amount (TXN-000921) | transactions, `amount_kwd` | 1 | Flag | Load with NULL and note `MISSING_AMOUNT`. | D6.4 |
-| Country case or spaces (`xd`, ` xb`) | transactions, `counterparty_country` | 2 | Fix | Trim and upper-case, note `COUNTRY_NORMALISED`. | D6.4 |
-| Country not two letters after cleaning | transactions, `counterparty_country` | 0 | Reject | `INVALID_COUNTRY_CODE`. | D6.4 |
-| UTC timestamps ending in `Z` | transactions, `timestamp` | 3 | Fix | Stored as the same instant as UTC epoch ms, note `UTC_TIMESTAMP`. Shown in Kuwait time. | D6.2 |
-| Late-arriving rows (last 5 of the file) | transactions, file order | 5 | Fix | Nothing is stored by file order. Rules sort by `ts_epoch_ms`. | D6.3 |
-| Invalid timestamp, amount, direction, or missing required field | transactions | 0 | Reject | `INVALID_TIMESTAMP`, `INVALID_AMOUNT`, `INVALID_DIRECTION`, `MISSING_FIELD:<name>`. | D6.4 |
-| Account not in `accounts.csv` | transactions, `account_id` | 0 | Reject | `UNKNOWN_ACCOUNT`. | D6.4 |
+| Identical duplicate `transaction_id` (TXN-001166, TXN-002808) | transactions, `transaction_id` | 2 | Reject as a duplicate | Keep the first row. The repeat is written to `import_rejects` as `DUPLICATE_IDENTICAL` and counted in `duplicates_dropped`, not `rows_rejected`. Done before any rule runs. | `importer.test.ts` |
+| Same id, different content | transactions, `transaction_id` | 0 | Reject | Keep the first row. The repeat is rejected as `DUPLICATE_CONFLICT`. | `importer.test.ts` |
+| Missing country | transactions, `counterparty_country` | 3 | Flag | Load with NULL and note `MISSING_COUNTRY`. | `importer.test.ts` |
+| Missing amount (TXN-000921) | transactions, `amount_kwd` | 1 | Flag | Load with NULL and note `MISSING_AMOUNT`. | `importer.test.ts` |
+| Country case or spaces (`xd`, ` xb`) | transactions, `counterparty_country` | 2 | Fix | Trim and upper-case, note `COUNTRY_NORMALISED`. | `importer.test.ts` |
+| Country not two letters after cleaning (`KWT`, `1A`) | transactions, `counterparty_country` | 0 | Flag | Load with a NULL country and note `INVALID_COUNTRY`, so the other rules still see the row. Counted as `invalid_country` in the report. | `importer.test.ts` |
+| UTC timestamps ending in `Z` | transactions, `timestamp` | 3 | Fix | Stored as the same instant as UTC epoch ms, note `UTC_TIMESTAMP`. Shown in Kuwait time. | `time.test.ts` |
+| Late-arriving rows (last 5 of the file) | transactions, file order | 5 | Fix | Nothing is stored by file order. Rules sort by `ts_epoch_ms`. | `velocity.test.ts` |
+| Invalid timestamp, amount, direction, or missing required field | transactions | 0 | Reject | `INVALID_TIMESTAMP`, `INVALID_AMOUNT`, `INVALID_DIRECTION`, `MISSING_FIELD:<name>`. | `importer.test.ts` |
+| Malformed row in `high_risk_countries.csv` (bad code, missing name or reason) | high_risk_countries | 0 | Stop | The import stops with a message listing every bad row, because dropping it would silently stop a country from being high risk. | `importer.test.ts` |
+| Account not in `accounts.csv` | transactions, `account_id` | 0 | Reject | `UNKNOWN_ACCOUNT`. | `importer.test.ts` |
 
 ## Import report
 

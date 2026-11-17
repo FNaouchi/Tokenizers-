@@ -11,12 +11,14 @@ interface Props {
   summary: AsyncState<Summary>;
   activeRule: RuleId | undefined;
   onSelect: (rule: RuleId | undefined) => void;
+  /** True while the account filter text is incomplete, so the counts shown are not for that filter. */
+  stale?: boolean;
 }
 
-export function SummaryCards({ summary, activeRule, onSelect }: Props) {
+export function SummaryCards({ summary, activeRule, onSelect, stale = false }: Props) {
   const data = summary.data;
   return (
-    <section aria-label="Flag counts" className="cards">
+    <section aria-label="Flag counts" className={`cards ${stale ? 'stale' : ''}`}>
       <div className="card card-total">
         <span className="card-label">Flagged transactions</span>
         <span className="card-count">{data ? data.flagged_transactions : '–'}</span>

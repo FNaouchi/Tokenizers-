@@ -39,7 +39,8 @@ describe('loadConfig', () => {
     const file = writeConfig({
       ...validFile,
       large_amount_kwd: '3000.0001',
-      velocity: { min_count: 0, window_minutes: '60' },
+      velocity: { min_count: 0, window_minutes: 60 },
+      high_risk_countries_csv: '',
     });
     const error = (() => {
       try {
@@ -49,11 +50,27 @@ describe('loadConfig', () => {
       }
     })();
     expect(error).toBeInstanceOf(ConfigError);
-    expect((error as ConfigError).problems).toHaveLength(2);
+    expect((error as ConfigError).problems).toHaveLength(3);
   });
 
   it('rejects a money limit with more than 3 decimal places, and a non-integer count', () => {
     expect(() => loadConfig({ file: writeConfig({ ...validFile, large_amount_kwd: '3000.0001' }), env: {} })).toThrow(ConfigError);
     expect(() => loadConfig({ file: writeConfig({ ...validFile, velocity: { min_count: 5.5, window_minutes: 60 } }), env: {} })).toThrow(ConfigError);
+  });
+
+  it('rejects a limit of 0, which would flag every transaction', () => {
+    expect(() => loadConfig({ file: writeConfig({ ...validFile, large_amount_kwd: '0.000' }), env: {} })).toThrow(/above 0/);
+    expect(() => loadConfig({ file: writeConfig(validFile), env: { AML_LARGE_AMOUNT_KWD: '0' } })).toThrow(ConfigError);
+  });
+
+  it('rejects invalid environment overrides', () => {
+    const file = writeConfig(validFile);
+    expect(() => loadConfig({ file, env: { AML_VELOCITY_MIN_COUNT: 'five' } })).toThrow(ConfigError);
+    expect(() => loadConfig({ file, env: { AML_VELOCITY_WINDOW_MINUTES: '-30' } })).toThrow(ConfigError);
+    expect(() => loadConfig({ file, env: { AML_LARGE_AMOUNT_KWD: '3,000' } })).toThrow(ConfigError);
+  });
+
+  it('fails with a clear message when the file is missing', () => {
+    expect(() => loadConfig({ file: '/nonexistent/rules.json', env: {} })).toThrow(/Cannot read or parse/);
   });
 });

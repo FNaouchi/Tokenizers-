@@ -12,7 +12,8 @@ if (!existsSync(dbPath)) {
 
 const config = loadConfig();
 const db = openDatabase(dbPath);
-// Re-apply the rules so the stored flags always match the current config.
+// Re-apply the rules so the stored flags match the current limits. The high-risk country list is
+// read from the database, so a change to that CSV only takes effect after "npm run import".
 console.log('Rule summary:', applyRules(db, config));
 
 const port = Number(process.env.PORT ?? 3001);

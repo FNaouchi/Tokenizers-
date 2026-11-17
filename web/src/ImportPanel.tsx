@@ -9,6 +9,7 @@ const LABELS: [keyof import('./api').ImportReport, string][] = [
   ['missing_amount', 'Missing amount'],
   ['missing_country', 'Missing country'],
   ['country_normalised', 'Country code cleaned'],
+  ['invalid_country', 'Country code unusable'],
   ['utc_timestamps', 'UTC timestamps converted'],
 ];
 

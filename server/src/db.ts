@@ -58,6 +58,7 @@ CREATE TABLE import_report (
   missing_amount INTEGER NOT NULL,
   missing_country INTEGER NOT NULL,
   country_normalised INTEGER NOT NULL,
+  invalid_country INTEGER NOT NULL,
   utc_timestamps INTEGER NOT NULL
 );
 
