@@ -106,5 +106,6 @@ table.related tr.self td { font-weight: 700; background: #f0f5ff; }
   table.flags td.why { order: 0; padding-top: 6px; padding-bottom: 6px; }
   table.flags td.txn, table.flags td.why { min-width: 0; }
   table.flags tr.detail { padding: 0; }
+  table.flags td:empty { display: none; }
   table.related { display: block; overflow-x: auto; }
 }
