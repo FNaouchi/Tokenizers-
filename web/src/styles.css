@@ -123,6 +123,14 @@ table.related tr.self td { font-weight: 700; background: var(--row-open); }
 .badge.rule-LARGE_AMOUNT { background: var(--large); }
 .badge.rule-VELOCITY { background: var(--velocity); }
 .badge.rule-HIGH_RISK_COUNTRY { background: var(--risk); }
+.reasons { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+.tip { position: relative; display: inline-block; cursor: help; }
+.tip .badge { margin-right: 0; }
+.tip-text {
+  display: none; position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; width: max-content; max-width: min(320px, 80vw);
+  padding: 6px 10px; border-radius: 6px; background: var(--text); color: var(--bg); font-size: 0.82rem; line-height: 1.35; box-shadow: 0 2px 8px var(--shadow);
+}
+.tip:hover .tip-text, .tip:focus .tip-text, .tip:focus-within .tip-text { display: block; }
 .dq { margin-top: 6px; }
 .dq-badge { background: var(--neutral-badge-bg); color: var(--neutral-badge-text); }
 

@@ -124,7 +124,7 @@ export function FlagTable({ items, onAccountClick }: Props) {
                   <td data-label="Why it was flagged" className="why">
                     <ul className="reasons">
                       <li>
-                        <span className="badge rule-VELOCITY">{RULE_LABELS.VELOCITY}</span> {reasonValues(row.velocity)}
+                        <FlagBadge flag={row.velocity} />
                       </li>
                     </ul>
                   </td>
@@ -165,8 +165,8 @@ export function FlagTable({ items, onAccountClick }: Props) {
                 <ul className="reasons">
                   {txn.flags.map((flag) => (
                     <li key={flag.rule_id}>
-                      <span className={`badge rule-${flag.rule_id}`}>{RULE_LABELS[flag.rule_id]}</span> {reasonValues(flag)}
-                    </li>
+                    <FlagBadge flag={flag} />
+                  </li>
                   ))}
                 </ul>
                 {txn.data_quality.length > 0 && (
@@ -196,6 +196,16 @@ export function FlagTable({ items, onAccountClick }: Props) {
       </tbody>
     </table>
     </div>
+  );
+}
+
+/** The rule badge; the full reason shows on hover, on keyboard focus and on tap. */
+function FlagBadge({ flag }: { flag: Flag }) {
+  return (
+    <span className="tip" tabIndex={0}>
+      <span className={`badge rule-${flag.rule_id}`}>{RULE_LABELS[flag.rule_id]}</span>
+      <span role="tooltip" className="tip-text">{reasonValues(flag)}</span>
+    </span>
   );
 }
 
