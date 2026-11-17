@@ -1,10 +1,8 @@
 # Project instructions
 
-<!-- Copilot adds this file to every request, so keep it short. Replace each TODO, then delete this comment. Guide: docs/copilot-customization.md -->
-
-- The brief is in `README.md` and the data dictionary in `data/README.md`.
-- Stack: TODO: language, framework, database (for example SQLite) and test runner.
-- Structure: TODO: where the back end, API, front end and tests live.
-- API conventions: TODO: paths, field names, the error format and status codes. The `api-endpoint` skill can suggest these.
-- Code conventions: TODO: naming, and how a rule returns its reason.
-- Tests: TODO: the command that runs them.
+- The brief is in `README.md`, the data dictionary in `data/README.md`, the plan in `docs/plan.md` and the API contract in `docs/api.md`.
+- Stack: Node 20+ and TypeScript (npm workspaces), Express, SQLite via better-sqlite3 (v13), React + Vite, Vitest + supertest.
+- Structure: `server/src/{money,time,config}.ts`, `server/src/import/` (CSV load and cleaning), `server/src/rules/` (pure rules + `engine.ts`), `server/src/api/` (thin routes), `server/test/`, `web/` (React, talks to the server only through `/api`), `config/rules.json` (all rule limits), `data/` (CSVs and `aml.db`).
+- API conventions: all paths start with `/api`; JSON with snake_case fields; lists are `{items, total, limit, offset}`; money is a string with 3 decimals (`"3000.000"`); timestamps are ISO 8601 in Kuwait time (`+03:00`); errors are `{"error": {"code", "message", "details": [{"field", "problem", "value"}]}}` with `400` for invalid input and `404` for a missing item. Never return stack traces or SQL errors. Routes hold no rule logic.
+- Code conventions: never use floats for money; keep amounts as integer fils (KWD x 1000) and format at the edge. Rule limits come from `config/rules.json`, never from code. A rule is a pure function that returns `{rule_id, reason, details}` per flagged transaction; `reason` is one readable line that includes the actual value and the limit, for example `VELOCITY: 6 transactions in 38 min (limit: 5 in 60 min)`, and `details` holds the same values as data. A transaction can carry several flags. Never rely on file order, always sort by UTC time.
+- Tests: `npm test` (Vitest). Each rule needs a normal case, the exact limits and every data-quality case from `data/README.md`.

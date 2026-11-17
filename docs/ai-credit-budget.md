@@ -8,12 +8,12 @@ Complete the budget before you start building, and explain each model choice. Th
 
 | Phase | Copilot feature | Model choice and why | Budget (AI Credits) | Actual at mid-point | Actual at end |
 |---|---|---|---:|---:|---:|
-| Plan | Plan mode / Ask | | | | |
-| Scaffold | Agent mode + instructions file | | | | |
-| Build features | Agent / Edit mode | | | | |
-| Tests + review | Skill for tests, chat review | | | | |
-| Docs + demo | Ask, README generation | | | | |
-| **Total** | | | | | |
+| Plan | Plan mode / Ask | Frontier (Opus): rule semantics, bursts and data-quality decisions drive everything after | 150 | | |
+| Scaffold | Agent mode + instructions file | Haiku, low/medium effort: templated work (D0, D1) | 80 | | |
+| Build features | Agent / Edit mode | Sonnet, high/medium effort for importer, money, VELOCITY, engine, review table; Haiku for API, UI wiring, time, schema | 450 | | |
+| Tests + review | Skill for tests, chat review | Sonnet, high effort for rule tests and the Reviewer pass; Haiku for the other tests | 200 | | |
+| Docs + demo | Ask, README generation | Haiku, low effort | 40 | | |
+| **Total** | | | **920** | | |
 
 **Variance at the end** = (actual − budget) ÷ budget = ____ %
 

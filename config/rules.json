@@ -1,0 +1,8 @@
+{
+  "large_amount_kwd": "3000.000",
+  "velocity": {
+    "min_count": 5,
+    "window_minutes": 60
+  },
+  "high_risk_countries_csv": "data/high_risk_countries.csv"
+}
