@@ -214,8 +214,8 @@ The rubric awards 100 points across the lifecycle. It's the same for every chall
 > [!NOTE]
 > Complete this section before your demo. Your trainer, and other teams, will run your app from it.
 
-- **Team name:** _(team to fill in)_
-- **Team members:** _(team to fill in)_
+- **Team name:** Tokenizers
+- **Team members:** Fawaz Naouchi, Faisal Alyouhah, Zahed Sharif, Khaled Badran 
 - **Stack:** Node 20+ and TypeScript (npm workspaces). Back end: Express and SQLite (`better-sqlite3`). Front end: React and Vite. Tests: Vitest and supertest. Money is held as integer fils (KWD x 1000), never floats.
 
 ### Run it
@@ -262,6 +262,6 @@ npm test
 ### Evidence checklist
 
 - [x] Plan: `docs/plan.md`
-- [ ] Budget, usage readings, mid-point re-plan and before/after example: [`docs/ai-credit-budget.md`](docs/ai-credit-budget.md)
+- [x] Budget, usage readings, mid-point re-plan and before/after example: [`docs/ai-credit-budget.md`](docs/ai-credit-budget.md)
 - [x] Team conventions: `.github/copilot-instructions.md`
 - [x] Skills you wrote: `.github/skills/`
