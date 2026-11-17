@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { api, type Flag, type FlaggedTransaction } from './api';
-import { reasonValues } from './format';
+import { dataQualityNote, describeTransaction, reasonValues } from './format';
 import { RULE_LABELS } from './SummaryCards';
 import { useApi } from './useApi';
 
@@ -157,7 +157,7 @@ export function FlagTable({ items, onAccountClick }: Props) {
                 <span className="txn-id">{txn.transaction_id}</span>
                 {txn.flags.length > 1 && <span className="flag-count">{txn.flags.length} flags</span>}
                 <div className="meta">
-                  {txn.direction} · {txn.transaction_type} · {txn.channel}
+                  {describeTransaction(txn.direction, txn.transaction_type, txn.channel)}
                 </div>
               </td>
               <td data-label="Why it was flagged" className="why">
@@ -171,8 +171,8 @@ export function FlagTable({ items, onAccountClick }: Props) {
                 {txn.data_quality.length > 0 && (
                   <div className="dq">
                     {txn.data_quality.map((note) => (
-                      <span key={note} className="badge dq-badge" title="Data-quality note from the import">
-                        {note}
+                      <span key={note} className="badge dq-badge" title={dataQualityNote(note).explanation}>
+                        {dataQualityNote(note).label}
                       </span>
                     ))}
                   </div>
@@ -217,7 +217,7 @@ function BurstTransactions({ row, pageItems }: { row: Extract<Row, { kind: 'burs
           <th>Transaction</th>
           <th className="num">Amount (KWD)</th>
           <th>Country</th>
-          <th>Other flags</th>
+          <th>Other flags and notes</th>
         </tr>
       </thead>
       <tbody>
@@ -227,7 +227,7 @@ function BurstTransactions({ row, pageItems }: { row: Extract<Row, { kind: 'burs
             <td data-label="Transaction">{txn.transaction_id}</td>
             <td className="num" data-label="Amount (KWD)">{txn.amount_kwd ?? '—'}</td>
             <td data-label="Country">{txn.counterparty_country ?? '—'}</td>
-            <td data-label="Other flags">
+            <td data-label="Other flags and notes">
               {txn.flags
                 .filter((flag) => flag.rule_id !== 'VELOCITY')
                 .map((flag) => (
@@ -235,6 +235,11 @@ function BurstTransactions({ row, pageItems }: { row: Extract<Row, { kind: 'burs
                     {RULE_LABELS[flag.rule_id]}
                   </span>
                 ))}
+              {txn.data_quality.map((note) => (
+                <span key={note} className="badge dq-badge" title={dataQualityNote(note).explanation}>
+                  {dataQualityNote(note).label}
+                </span>
+              ))}
             </td>
           </tr>
         ))}

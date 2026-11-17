@@ -1,4 +1,5 @@
 import { api } from './api';
+import { dataQualityNote } from './format';
 import { formatTime } from './FlagTable';
 import { RULE_LABELS } from './SummaryCards';
 import { useApi } from './useApi';
@@ -55,8 +56,8 @@ export function NotAssessedPanel({ account, onAccountClick }: Props) {
                       </span>
                     ))}
                     {txn.data_quality.map((note) => (
-                      <span key={note} className="badge dq-badge">
-                        {note}
+                      <span key={note} className="badge dq-badge" title={dataQualityNote(note).explanation}>
+                        {dataQualityNote(note).label}
                       </span>
                     ))}
                   </td>

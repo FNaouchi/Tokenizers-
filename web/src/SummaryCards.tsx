@@ -34,7 +34,6 @@ export function SummaryCards({ summary, activeRule, onSelect, stale = false }: P
         >
           <span className="card-label">{RULE_LABELS[rule]}</span>
           <span className="card-count">{data ? data.by_rule[rule] : '–'}</span>
-          <span className="card-note">{rule}</span>
         </button>
       ))}
       {summary.error && <p className="error" role="alert">{summary.error}</p>}
