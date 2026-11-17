@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../config.js';
 import { createFreshDatabase, DEFAULT_DB_PATH } from '../db.js';
 import { importAll } from './importer.js';
+import { applyRules } from '../rules/engine.js';
 
 const dataDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../data');
 const config = loadConfig();
@@ -17,4 +18,5 @@ const report = importAll(db, {
 const rejects = db.prepare('SELECT reason, COUNT(*) AS n FROM import_rejects GROUP BY reason').all();
 console.log('Import report:', report);
 console.log('Rejected or dropped rows by reason:', rejects);
+console.log('Rule summary:', applyRules(db, config));
 db.close();
