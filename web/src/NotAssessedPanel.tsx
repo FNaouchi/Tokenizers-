@@ -1,4 +1,5 @@
 import { api } from './api';
+import { Country } from './Country';
 import { dataQualityNote, formatAmount } from './format';
 import { formatTime } from './FlagTable';
 import { RULE_LABELS } from './SummaryCards';
@@ -48,7 +49,7 @@ export function NotAssessedPanel({ account, onAccountClick }: Props) {
                   </td>
                   <td>{txn.account.customer_segment}</td>
                   <td className="num">{formatAmount(txn.amount_kwd)}</td>
-                  <td>{txn.counterparty_country ?? '—'}</td>
+                  <td><Country code={txn.counterparty_country} /></td>
                   <td>
                     {txn.not_assessed.map((rule) => (
                       <span key={rule} className={`badge rule-${rule}`}>

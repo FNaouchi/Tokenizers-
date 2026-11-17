@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, type FlagSort, type RuleId } from './api';
+import { HighRiskCountriesContext } from './Country';
 import { Filters } from './Filters';
 import { FlagTable } from './FlagTable';
 import { ImportPanel } from './ImportPanel';
@@ -45,6 +46,7 @@ export function App() {
   const last = page ? page.offset + page.items.length : 0;
 
   return (
+    <HighRiskCountriesContext.Provider value={config.data?.high_risk_countries ?? []}>
     <div className="app">
       <header>
         <h1>AML Transaction Flagger</h1>
@@ -103,5 +105,6 @@ export function App() {
       <NotAssessedPanel account={account} onAccountClick={changeAccount} />
       <ImportPanel />
     </div>
+    </HighRiskCountriesContext.Provider>
   );
 }

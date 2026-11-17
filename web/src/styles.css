@@ -54,6 +54,7 @@ main[aria-busy='true'] { opacity: 0.65; }
 table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); font-size: 0.88rem; }
 table.flags td.txn { min-width: 190px; }
 table.flags td.why { min-width: 300px; }
+table.flags td[data-label='Country'] { min-width: 120px; }
 table.flags td[data-label='Account'] { white-space: nowrap; }
 th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: left; }
 th { background: #eef0f4; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
@@ -73,6 +74,8 @@ table.related tr.self td { font-weight: 700; background: #f0f5ff; }
 .dq-badge { background: #e5e7eb; color: #374151; }
 
 .flag-count { display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 4px; background: var(--risk); color: #fff; font-size: 0.72rem; font-weight: 700; }
+
+.risk-mark { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 4px; background: var(--risk); color: #fff; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
 
 .segment { font-size: 0.75rem; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: #e5e7eb; }
 .segment-CORPORATE { background: #dbeafe; color: #1e40af; }
