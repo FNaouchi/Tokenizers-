@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aml-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--workspace", "server"],
+      "port": 3001
+    },
+    {
+      "name": "aml-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "web"],
+      "port": 5173
+    }
+  ]
+}
