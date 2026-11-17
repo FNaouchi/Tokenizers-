@@ -5,7 +5,7 @@ import { Filters } from './Filters';
 import { FlagTable } from './FlagTable';
 import { ImportPanel } from './ImportPanel';
 import { NotAssessedPanel } from './NotAssessedPanel';
-import { SummaryCards } from './SummaryCards';
+import { RulesStrip, SummaryCards } from './SummaryCards';
 import { useApi } from './useApi';
 
 const PAGE_SIZE = 50;
@@ -51,17 +51,11 @@ export function App() {
       <header>
         <h1>AML Transaction Flagger</h1>
         <p className="subtitle">October 2026 · synthetic data · times in Kuwait time (UTC+03:00)</p>
-        {config.data && (
-          <p className="limits" aria-label="Active rule limits">
-            Limits: large amount ≥ {config.data.large_amount_kwd} KWD · velocity ≥ {config.data.velocity.min_count} transactions
-            within {config.data.velocity.window_minutes} min · high-risk countries:{' '}
-            {config.data.high_risk_countries.map((c) => c.country_code).join(', ')}
-          </p>
-        )}
+        {config.data && <RulesStrip config={config.data} />}
         {config.error && <p className="error" role="alert">{config.error}</p>}
       </header>
 
-      <SummaryCards summary={summary} activeRule={rule} onSelect={changeRule} stale={!accountValid} />
+      <SummaryCards summary={summary} config={config.data} activeRule={rule} onSelect={changeRule} stale={!accountValid} />
 
       <Filters
         rule={rule}

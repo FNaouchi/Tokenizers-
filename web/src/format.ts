@@ -1,4 +1,4 @@
-import type { Flag } from './api';
+import type { ConfigInfo, Flag, RuleId } from './api';
 
 /** Formats a decimal string from the API with thousands separators and 3 decimals: "12499.999" -> "12,499.999". */
 export function formatAmount(amount: string | null): string {
@@ -69,4 +69,13 @@ export const DATA_QUALITY_NOTES: Record<string, { label: string; explanation: st
 
 export function dataQualityNote(note: string): { label: string; explanation: string } {
   return DATA_QUALITY_NOTES[note] ?? { label: plain(note), explanation: 'Data-quality note from the import.' };
+}
+
+/** The limit of each rule in plain words, built from the config API. */
+export function ruleLimits(config: ConfigInfo): Record<RuleId, string> {
+  return {
+    LARGE_AMOUNT: `≥ ${formatAmount(config.large_amount_kwd)} KWD`,
+    VELOCITY: `≥ ${config.velocity.min_count} in ${config.velocity.window_minutes} min`,
+    HIGH_RISK_COUNTRY: config.high_risk_countries.map((c) => c.country_code).join(', '),
+  };
 }

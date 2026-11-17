@@ -18,9 +18,14 @@ body { margin: 0; }
 .app { max-width: 1280px; margin: 0 auto; padding: 24px 20px 48px; }
 
 h1 { margin: 0; font-size: 1.6rem; }
-.subtitle, .limits, .meta, .card-note { color: var(--muted); font-size: 0.85rem; }
+.subtitle, .meta, .card-note { color: var(--muted); font-size: 0.85rem; }
 .subtitle { margin: 4px 0; }
-.limits { margin: 4px 0 20px; }
+.rules-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 10px 0 20px; font-size: 0.82rem; }
+.rules-strip-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.75rem; margin-right: 2px; }
+.rule-chip { padding: 2px 10px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; background: var(--panel); }
+.rule-chip.rule-LARGE_AMOUNT { border-left-color: var(--large); }
+.rule-chip.rule-VELOCITY { border-left-color: var(--velocity); }
+.rule-chip.rule-HIGH_RISK_COUNTRY { border-left-color: var(--risk); }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .cards.stale { opacity: 0.4; }
@@ -52,8 +57,8 @@ main[aria-busy='true'] { opacity: 0.65; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); font-size: 0.88rem; }
-table.flags td.txn { min-width: 190px; }
-table.flags td.why { min-width: 300px; }
+table.flags td.txn { min-width: 170px; }
+table.flags td.why { min-width: 260px; }
 table.flags td[data-label='Country'] { min-width: 120px; }
 table.flags td[data-label='Account'] { white-space: nowrap; }
 th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: left; }
