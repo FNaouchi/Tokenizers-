@@ -5,6 +5,7 @@ import { checkFilters, Filters, NO_FILTERS, type FilterValues } from './Filters'
 import { FlagTable } from './FlagTable';
 import { ImportPanel } from './ImportPanel';
 import { NotAssessedPanel } from './NotAssessedPanel';
+import { Pager } from './Pager';
 import { RulesStrip, SummaryCards } from './SummaryCards';
 import { useApi } from './useApi';
 
@@ -56,54 +57,48 @@ export function App() {
 
   return (
     <HighRiskCountriesContext.Provider value={config.data?.high_risk_countries ?? []}>
-    <div className="app">
-      <header>
-        <h1>AML Transaction Flagger</h1>
-        <p className="subtitle">October 2026 · synthetic data · times in Kuwait time (UTC+03:00)</p>
-        {config.data && <RulesStrip config={config.data} />}
-        {config.error && <p className="error" role="alert">{config.error}</p>}
-      </header>
+      <div className="app">
+        <header>
+          <h1>AML Transaction Flagger</h1>
+          <p className="subtitle">October 2026 · synthetic data · times in Kuwait time (UTC+03:00)</p>
+          {config.data && <RulesStrip config={config.data} />}
+          {config.error && <p className="error" role="alert">{config.error}</p>}
+        </header>
 
-      <SummaryCards summary={summary} config={config.data} activeRule={rule} onSelect={changeRule} stale={!filtersValid} />
+        <SummaryCards summary={summary} config={config.data} activeRule={rule} onSelect={changeRule} stale={!filtersValid} />
 
-      <Filters
-        values={filters}
-        problems={problems}
-        config={config.data}
-        sort={sort}
-        onSortChange={changeSort}
-        onChange={changeFilters}
-        onClear={() => {
-          setFilters(NO_FILTERS);
-          setOffset(0);
-        }}
-      />
+        <Filters
+          values={filters}
+          problems={problems}
+          config={config.data}
+          sort={sort}
+          onSortChange={changeSort}
+          onChange={changeFilters}
+          onClear={() => {
+            setFilters(NO_FILTERS);
+            setOffset(0);
+          }}
+        />
 
-      <main aria-busy={flags.loading}>
-        {!filtersValid && <p className="empty">Fix the highlighted filter. Until then it is not applied.</p>}
-        {filtersValid && flags.error && <p className="error" role="alert">{flags.error}</p>}
-        {filtersValid && page && (
-          <>
-            <p className="result-count">
-              {page.total === 0 ? 'No results' : `Showing ${first}–${last} of ${page.total} flagged transactions`}
-            </p>
-            <FlagTable items={page.items} onAccountClick={changeAccount} />
-            <nav className="pager" aria-label="Pages">
-              <button type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
-                Previous
-              </button>
-              <button type="button" disabled={last >= page.total} onClick={() => setOffset(offset + PAGE_SIZE)}>
-                Next
-              </button>
-            </nav>
-          </>
-        )}
-        {filtersValid && !page && flags.loading && <p className="empty">Loading…</p>}
-      </main>
+        <main aria-busy={flags.loading}>
+          {!filtersValid && <p className="empty">Fix the highlighted filter. Until then it is not applied.</p>}
+          {filtersValid && flags.error && <p className="error" role="alert">{flags.error}</p>}
+          {filtersValid && page && (
+            <>
+              <p className="result-count">
+                {page.total === 0 ? 'No results' : `Showing ${first}–${last} of ${page.total} flagged transactions`}
+              </p>
+              <Pager label="Pages above the table" page={page} offset={offset} onOffsetChange={setOffset} />
+              <FlagTable items={page.items} onAccountClick={changeAccount} />
+              <Pager label="Pages below the table" page={page} offset={offset} onOffsetChange={setOffset} />
+            </>
+          )}
+          {filtersValid && !page && flags.loading && <p className="empty">Loading…</p>}
+        </main>
 
-      <NotAssessedPanel account={nonRuleAccount} onAccountClick={changeAccount} />
-      <ImportPanel />
-    </div>
+        <NotAssessedPanel account={nonRuleAccount} onAccountClick={changeAccount} />
+        <ImportPanel />
+      </div>
     </HighRiskCountriesContext.Provider>
   );
 }
