@@ -20,3 +20,6 @@ target/
 .DS_Store
 Thumbs.db
 .idea/
+
+# Generated database
+data/aml.db*

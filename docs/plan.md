@@ -30,13 +30,13 @@ A compliance analyst needs a local app that flags suspicious transactions in the
 | 2 | Multiple flags | A transaction appears once, with an array of all the flags that fired. |
 | 3 | Bursts | Every transaction in any qualifying window gets the flag. Its reason shows the largest window that contains it, and `details.related_transaction_ids` lists the others. |
 | 4 | Boundaries | 3,000.000 KWD **is** flagged and 2,999.999 KWD is not. A span of exactly 60:00 **is** inside the window (ACC-100069), but 60:01 is not (ACC-100054). 4 transactions do not trigger VELOCITY. |
-| 5a | Duplicate IDs (TXN-001166, TXN-002808) | Keep the first row and drop identical repeats, counting them in the report. A repeat with different content goes to `rejected_rows` as `DUPLICATE_CONFLICT`. Duplicates are removed before the rules run. Without this, ACC-100107 would get a false burst and TXN-001166 would be counted twice. |
+| 5a | Duplicate IDs (TXN-001166, TXN-002808) | Keep the first row. Identical repeats are logged in `import_rejects` as `DUPLICATE_IDENTICAL` and counted in the report. A repeat with different content goes to `import_rejects` as `DUPLICATE_CONFLICT`. Duplicates are removed before the rules run. Without this, ACC-100107 would get a false burst and TXN-001166 would be counted twice. |
 | 5b | Missing country (TXN-001143, TXN-002893, TXN-003002) | Store NULL and add a `MISSING_COUNTRY` data-quality note. HIGH_RISK_COUNTRY can't fire, but the other rules still apply. |
 | 5c | Missing amount (TXN-000921) | Keep the row with a NULL amount and add a `MISSING_AMOUNT` note. LARGE_AMOUNT is skipped, but the row still counts for VELOCITY and HIGH_RISK_COUNTRY. |
 | 5d | Country case or spaces (`xd`, ` xb`) | Trim and upper-case the code before storing and comparing it, and add a `COUNTRY_NORMALISED` note. The high-risk list gets the same normalisation. |
 | 5e | Late rows (TXN-003073 to TXN-003077) | File order is ignored, and VELOCITY sorts by UTC time for each account. TXN-003074 completes the ACC-100072 burst. |
 | 5f | `Z` timestamps (TXN-001557, TXN-001857, TXN-002458) | Store as a UTC instant and display in +03:00. TXN-002458 (07:20Z = 10:20 Kuwait time) completes the ACC-100023 burst. |
-| 5g | Other bad rows (bad timestamp or amount format, unknown account) | Reject to `rejected_rows` with a reason. None are expected in this data. |
+| 5g | Other bad rows (bad timestamp or amount format, unknown account) | Reject to `import_rejects` with a reason. None are expected in this data. |
 | 6 | Money | Integer fils everywhere. The API returns `"3000.000"` strings. |
 
 ## Golden numbers (acceptance test on the real data)
@@ -71,7 +71,7 @@ These were computed while profiling with Python `Decimal` and the decisions abov
 |---|---|---|---|
 | D2.1: `money.ts`, a strict decimal parser to fils (rejects more than 3 decimal places, letters and empty strings), plus a formatter | Sonnet | medium | plan decision 6 |
 | D2.2: `time.ts`, which parses offset and `Z` timestamps, converts to UTC epoch ms, and formats in Kuwait time | Haiku | medium | plan 5f |
-| D2.3: SQLite schema (`accounts`, `high_risk_countries`, `transactions`, `rejected_rows`, `import_report`, `flags`) | Haiku | medium | plan |
+| D2.3: SQLite schema (`accounts`, `high_risk_countries`, `transactions`, `import_rejects`, `import_report`, `flags`) | Haiku | medium | plan |
 | D2.4: Importer: deduplication (identical vs conflicting), country normalisation, NULL handling, data-quality notes, rejections, report counts. It must give the same result every time it runs (drop and rebuild). | Sonnet | high | data-import skill, data/README.md, plan 5a–5g |
 
 **Acceptance:** after `npm run import`, the report shows read 3,079 / loaded 3,077 / duplicates 2 / rejected 0 / missing country 3 / missing amount 1 / country normalised 2 / UTC timestamps 3.
